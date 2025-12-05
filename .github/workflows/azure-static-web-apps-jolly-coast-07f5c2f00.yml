@@ -17,43 +17,25 @@ jobs:
     steps:
       # 1️⃣ Checkout repo
       - uses: actions/checkout@v3
-        with:
-          submodules: true
-          lfs: false
 
-      # 2️⃣ Setup Node.js 22 (needed for Vite 7 + Firebase)
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      # 2️⃣ Setup Node 22
+      - uses: actions/setup-node@v3
         with:
           node-version: "22.19.0"
 
       # 3️⃣ Install dependencies
-      - name: Install dependencies
-        run: npm install
+      - run: npm install
 
-      # 4️⃣ Build React App using Vite
-      - name: Build React App
-        run: npm run build
+      # 4️⃣ Build app with Vite
+      - run: npm run build
 
-      # 5️⃣ Deploy to Azure Static Web Apps
+      # 5️⃣ Deploy built app
       - name: Deploy to Azure Static Web App
         uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_JOLLY_COAST_07F5C2F00 }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
-          app_location: "/" # root of repo
-          api_location: "" # optional
+          app_location: "/" # Repo root
+          api_location: "" # Optional API path
           output_location: "dist" # Vite output folder
-
-  # Close PR Job (unchanged)
-  close_pull_request_job:
-    if: github.event_name == 'pull_request' && github.event.action == 'closed'
-    runs-on: ubuntu-latest
-    name: Close Pull Request Job
-    steps:
-      - name: Close Pull Request
-        uses: Azure/static-web-apps-deploy@v1
-        with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_JOLLY_COAST_07F5C2F00 }}
-          action: "close"
