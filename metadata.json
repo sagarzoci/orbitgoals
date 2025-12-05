@@ -1,0 +1,5 @@
+{
+  "name": "OrbitGoals",
+  "description": "A daily goal tracker with a monthly dashboard, detailed statistics, and AI-powered progress analysis using Gemini.",
+  "requestFramePermissions": []
+}
