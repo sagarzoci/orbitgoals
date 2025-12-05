@@ -5,7 +5,6 @@ import AICoach from '../components/AICoach';
 import TodayFocus from '../components/TodayFocus';
 import AchievementsWidget from '../components/AchievementsWidget';
 import HabitTemplates from '../components/HabitTemplates';
-import ChatWidget from '../components/ChatWidget';
 import Mascot, { MascotMood } from '../components/Mascot';
 import { Goal, DailyLogs, ICONS, COLORS, CompletionStatus } from '../types';
 import { calculateStats } from '../services/gamification';
@@ -563,8 +562,6 @@ const Dashboard: React.FC = () => {
              </div>
           </div>
         )}
-
-        <ChatWidget goals={goals} logs={logs} />
       </main>
 
       {/* Daily Log Modal (Calendar Drill-down) */}

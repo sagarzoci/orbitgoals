@@ -48,14 +48,6 @@ export interface UserStats {
   level: number;
 }
 
-export interface ChatMessage {
-  id: string;
-  text: string;
-  sender: 'user' | 'ai' | 'agent';
-  timestamp: any;
-  isTyping?: boolean;
-}
-
 export const ICONS = ['🎯', '💧', '🏃', '📚', '🧘', '💰', '🥦', '💻', '🎨', '🎵', '🛌', '💊', '🧹', '🧠'];
 export const COLORS = [
   'bg-emerald-500', 
