@@ -377,6 +377,7 @@ const LandingPage: React.FC = () => {
               <span className="font-semibold">OrbitGoals</span>
            </div>
            <div className="flex gap-6 text-sm text-slate-500">
+               <button onClick={() => navigate('/about')} className="hover:text-white transition">About Us</button>
                <button onClick={() => navigate('/privacy')} className="hover:text-white transition">Privacy</button>
                <a href="#" className="hover:text-white transition">Terms</a>
                <a href="#" className="hover:text-white transition">Contact</a>

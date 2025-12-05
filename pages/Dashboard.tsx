@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Calendar from '../components/Calendar';
 import Stats from '../components/Stats';
@@ -6,6 +5,8 @@ import AICoach from '../components/AICoach';
 import TodayFocus from '../components/TodayFocus';
 import AchievementsWidget from '../components/AchievementsWidget';
 import HabitTemplates from '../components/HabitTemplates';
+import ChatWidget from '../components/ChatWidget';
+import Mascot, { MascotMood } from '../components/Mascot';
 import { Goal, DailyLogs, ICONS, COLORS, CompletionStatus } from '../types';
 import { calculateStats } from '../services/gamification';
 import { Plus, X, Check, Target, LogOut, Settings, Lock, Clock, Bell, Award, User as UserIcon, Camera, Save, Loader, Mail, Shield } from 'lucide-react';
@@ -13,6 +14,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { updateProfile } from 'firebase/auth';
 import { auth } from '../firebase';
+import confetti from 'canvas-confetti';
+import { audioService } from '../services/audioService';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -39,6 +43,7 @@ const Dashboard: React.FC = () => {
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'achievements' | 'profile'>('overview');
+  const [mascotMood, setMascotMood] = useState<MascotMood>(null);
   
   // Profile State
   const [profileName, setProfileName] = useState('');
@@ -201,9 +206,6 @@ const Dashboard: React.FC = () => {
         photoURL: profilePhoto || null
       });
       setProfileMessage({ type: 'success', text: 'Profile updated successfully!' });
-      // Reload to ensure context picks up changes if necessary, 
-      // although firebase auth listener usually handles it, sometimes explicit reload is cleaner for simple apps.
-      // We'll stick to just UI feedback for now.
     } catch (error) {
       console.error("Profile update failed", error);
       setProfileMessage({ type: 'error', text: 'Failed to update profile. Please try again.' });
@@ -257,6 +259,43 @@ const Dashboard: React.FC = () => {
     toggleLog(todayStr, goalId, status);
   };
 
+  const handleModalAction = (e: React.MouseEvent, date: string, goalId: string, newStatus: CompletionStatus) => {
+    // 1. Audio & Mascot Effect
+    if (newStatus === 'completed') {
+        audioService.playSuccess();
+        setMascotMood('success');
+    }
+    else if (newStatus === 'skipped') {
+        audioService.playSkip();
+        setMascotMood('skip');
+    }
+    // "Undo" in the modal is essentially toggling back to pending
+    else if (newStatus === 'pending') {
+        audioService.playUndo();
+        setMascotMood('undo');
+    }
+
+    // 2. Visual Effect (Confetti for completion)
+    if (newStatus === 'completed') {
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        // Normalize coordinates
+        const xRatio = (rect.left + rect.width / 2) / window.innerWidth;
+        const yRatio = (rect.top + rect.height / 2) / window.innerHeight;
+
+        confetti({
+            particleCount: 50,
+            spread: 50,
+            origin: { x: xRatio, y: yRatio },
+            colors: ['#6366f1', '#10b981', '#f59e0b', '#ec4899'],
+            zIndex: 9999, // Ensure it's above the modal
+            disableForReducedMotion: true
+        });
+    }
+
+    // 3. Update State
+    toggleLog(date, goalId, newStatus);
+  };
+
   // Template Selection Handler
   const handleTemplateSelect = (template: { title: string, icon: string, color: string }) => {
     setNewGoalTitle(template.title);
@@ -278,6 +317,9 @@ const Dashboard: React.FC = () => {
   return (
     <div className="min-h-screen pb-20 bg-slate-950 font-sans text-slate-100 selection:bg-indigo-500/30">
       
+      {/* Mascot Overlay */}
+      <Mascot mood={mascotMood} onComplete={() => setMascotMood(null)} />
+
       {/* Navbar */}
       <nav className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-30">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -522,12 +564,24 @@ const Dashboard: React.FC = () => {
           </div>
         )}
 
+        <ChatWidget goals={goals} logs={logs} />
       </main>
 
       {/* Daily Log Modal (Calendar Drill-down) */}
+      <AnimatePresence>
       {selectedDay && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden">
+        <motion.div 
+           initial={{ opacity: 0 }}
+           animate={{ opacity: 1 }}
+           exit={{ opacity: 0 }}
+           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+        >
+          <motion.div 
+             initial={{ scale: 0.9, opacity: 0, y: 20 }}
+             animate={{ scale: 1, opacity: 1, y: 0 }}
+             exit={{ scale: 0.9, opacity: 0, y: 20 }}
+             className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden"
+          >
             <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-800/50">
               <div>
                 <h3 className="text-xl font-bold text-white flex items-center gap-2">
@@ -560,7 +614,11 @@ const Dashboard: React.FC = () => {
                   const isSkipped = status === 'skipped';
 
                   return (
-                    <div key={goal.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-800/40 border border-slate-700/50">
+                    <motion.div 
+                        layout
+                        key={goal.id} 
+                        className="flex items-center justify-between p-3 rounded-xl bg-slate-800/40 border border-slate-700/50"
+                    >
                       <div className="flex items-center gap-3">
                         <span className="text-2xl">{goal.icon}</span>
                         <div className={!isSelectedDayEditable ? 'opacity-70' : ''}>
@@ -583,9 +641,11 @@ const Dashboard: React.FC = () => {
                       </div>
                       
                       <div className="flex gap-2">
-                         <button
+                         <motion.button
+                          whileTap={{ scale: 0.9 }}
+                          whileHover={{ scale: 1.05 }}
                           disabled={!isSelectedDayEditable}
-                          onClick={() => toggleLog(selectedDay, goal.id, status === 'skipped' ? 'pending' : 'skipped')}
+                          onClick={(e) => handleModalAction(e, selectedDay, goal.id, status === 'skipped' ? 'pending' : 'skipped')}
                           className={`
                             p-2 rounded-lg transition-all
                             ${!isSelectedDayEditable 
@@ -597,11 +657,13 @@ const Dashboard: React.FC = () => {
                           title={isSelectedDayEditable ? "Skip for today" : "Locked"}
                         >
                           <X size={16} />
-                        </button>
+                        </motion.button>
                         
-                        <button
+                        <motion.button
+                          whileTap={{ scale: 0.9 }}
+                          whileHover={{ scale: 1.05 }}
                           disabled={!isSelectedDayEditable}
-                          onClick={() => toggleLog(selectedDay, goal.id, status === 'completed' ? 'pending' : 'completed')}
+                          onClick={(e) => handleModalAction(e, selectedDay, goal.id, status === 'completed' ? 'pending' : 'completed')}
                           className={`
                             p-2 rounded-lg transition-all flex items-center gap-2
                             ${!isSelectedDayEditable
@@ -614,9 +676,9 @@ const Dashboard: React.FC = () => {
                         >
                           <Check size={16} />
                           {isCompleted && <span className="text-xs font-bold">Done</span>}
-                        </button>
+                        </motion.button>
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })
               )}
@@ -626,14 +688,26 @@ const Dashboard: React.FC = () => {
                 Close
               </button>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {/* Goal Management Modal */}
+      <AnimatePresence>
       {isGoalModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+        <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+        >
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+          >
             <div className="p-6 overflow-y-auto flex-1">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold text-white">Manage Goals</h3>
@@ -767,9 +841,10 @@ const Dashboard: React.FC = () => {
                 </div>
               </div>
             )}
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
     </div>
   );

@@ -1,6 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Goal, DailyLogs, CompletionStatus } from '../types';
-import { Check, X, Flame, Circle, RotateCcw, Clock, Bell } from 'lucide-react';
+import { Check, X, Flame, RotateCcw, Clock, Bell, Trophy, Zap } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import confetti from 'canvas-confetti';
+import { audioService } from '../services/audioService';
+import { POINTS_PER_COMPLETION } from '../services/gamification';
+import Mascot, { MascotMood } from './Mascot';
 
 interface TodayFocusProps {
   goals: Goal[];
@@ -8,7 +13,23 @@ interface TodayFocusProps {
   onToggle: (goalId: string, status: CompletionStatus) => void;
 }
 
+// XP Pop-up Component
+const XPPopup: React.FC<{ value: number; x: number; y: number }> = ({ value, x, y }) => (
+  <motion.div
+    initial={{ opacity: 1, y: 0, scale: 0.5 }}
+    animate={{ opacity: 0, y: -50, scale: 1.5 }}
+    transition={{ duration: 0.8, ease: "easeOut" }}
+    className="fixed z-50 pointer-events-none text-amber-400 font-bold text-xl drop-shadow-md flex items-center gap-1"
+    style={{ left: x, top: y }}
+  >
+    <Zap size={20} fill="currentColor" /> +{value} XP
+  </motion.div>
+);
+
 const TodayFocus: React.FC<TodayFocusProps> = ({ goals, logs, onToggle }) => {
+  const [xpPopups, setXpPopups] = useState<{ id: number; val: number; x: number; y: number }[]>([]);
+  const [mascotMood, setMascotMood] = useState<MascotMood>(null);
+
   const today = new Date();
   const year = today.getFullYear();
   const month = String(today.getMonth() + 1).padStart(2, '0');
@@ -19,7 +40,7 @@ const TodayFocus: React.FC<TodayFocusProps> = ({ goals, logs, onToggle }) => {
     let streak = 0;
     const d = new Date(today);
     
-    // Check if today is done, if so start counting from today, else start from yesterday
+    // Check if today is done
     const isTodayDone = logs[todayStr]?.[goalId] === 'completed';
     if (isTodayDone) streak++;
 
@@ -27,42 +48,93 @@ const TodayFocus: React.FC<TodayFocusProps> = ({ goals, logs, onToggle }) => {
     for (let i = 1; i < 365; i++) {
       const prevDate = new Date(d);
       prevDate.setDate(prevDate.getDate() - i);
-      
-      const pYear = prevDate.getFullYear();
-      const pMonth = String(prevDate.getMonth() + 1).padStart(2, '0');
-      const pDay = String(prevDate.getDate()).padStart(2, '0');
-      const pDateStr = `${pYear}-${pMonth}-${pDay}`;
-
-      if (logs[pDateStr]?.[goalId] === 'completed') {
-        streak++;
-      } else {
-        break;
-      }
+      const prevStr = prevDate.toISOString().split('T')[0];
+      if (logs[prevStr]?.[goalId] === 'completed') streak++;
+      else break;
     }
     return streak;
   };
 
-  // Helper to format 24h string "14:30" to "2:30 PM"
-  const formatTime = (timeStr: string) => {
-    const [h, m] = timeStr.split(':');
-    const date = new Date();
-    date.setHours(parseInt(h), parseInt(m));
-    return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const handleAction = (e: React.MouseEvent, goalId: string, type: 'complete' | 'skip' | 'undo') => {
+    // 1. Audio & Mascot
+    if (type === 'complete') {
+        audioService.playSuccess();
+        setMascotMood('success');
+    }
+    if (type === 'skip') {
+        audioService.playSkip();
+        setMascotMood('skip');
+    }
+    if (type === 'undo') {
+        audioService.playUndo();
+        setMascotMood('undo');
+    }
+
+    // 2. Visual Rewards (Confetti & XP)
+    if (type === 'complete') {
+        // Trigger Confetti
+        const rect = (e.target as HTMLElement).getBoundingClientRect();
+        const xRatio = (rect.left + rect.width / 2) / window.innerWidth;
+        const yRatio = (rect.top + rect.height / 2) / window.innerHeight;
+
+        confetti({
+            particleCount: 60,
+            spread: 60,
+            origin: { x: xRatio, y: yRatio },
+            colors: ['#6366f1', '#10b981', '#f59e0b', '#ec4899'],
+            disableForReducedMotion: true,
+            zIndex: 90
+        });
+
+        // Trigger XP Popup
+        const newPopup = {
+            id: Date.now(),
+            val: POINTS_PER_COMPLETION,
+            x: e.clientX,
+            y: e.clientY - 20
+        };
+        setXpPopups(prev => [...prev, newPopup]);
+        
+        // Cleanup popup after animation
+        setTimeout(() => {
+            setXpPopups(prev => prev.filter(p => p.id !== newPopup.id));
+        }, 1000);
+    }
+
+    // 3. State Update
+    const statusMap = {
+        'complete': 'completed',
+        'skip': 'skipped',
+        'undo': 'pending'
+    };
+    onToggle(goalId, statusMap[type] as CompletionStatus);
   };
 
   const completedCount = goals.filter(g => logs[todayStr]?.[g.id] === 'completed').length;
   const progress = goals.length > 0 ? (completedCount / goals.length) * 100 : 0;
-
-  // Sort goals: Time-based first (sorted by time), then others
+  
+  // Sort goals
   const sortedGoals = [...goals].sort((a, b) => {
+    // Put pending first
+    const statusA = logs[todayStr]?.[a.id] || 'pending';
+    const statusB = logs[todayStr]?.[b.id] || 'pending';
+    if (statusA === 'pending' && statusB !== 'pending') return -1;
+    if (statusA !== 'pending' && statusB === 'pending') return 1;
+    
+    // Then by time
     if (a.time && b.time) return a.time.localeCompare(b.time);
-    if (a.time) return -1;
-    if (b.time) return 1;
     return 0;
   });
 
   return (
-    <div className="mb-8 animate-fade-in">
+    <div className="mb-8 animate-fade-in relative">
+      <Mascot mood={mascotMood} onComplete={() => setMascotMood(null)} />
+
+      {/* Render XP Popups */}
+      {xpPopups.map(p => (
+        <XPPopup key={p.id} value={p.val} x={p.x} y={p.y} />
+      ))}
+
       <div className="flex items-end justify-between mb-4">
         <div>
           <h2 className="text-2xl font-bold text-white flex items-center gap-2">
@@ -76,26 +148,38 @@ const TodayFocus: React.FC<TodayFocusProps> = ({ goals, logs, onToggle }) => {
           </p>
         </div>
         
-        {/* Simple Progress Bar */}
+        {/* Progress Bar with Bounce Effect */}
         <div className="hidden sm:block w-32 md:w-48">
           <div className="flex justify-between text-xs text-slate-500 mb-1">
             <span>Progress</span>
-            <span>{Math.round(progress)}%</span>
+            <motion.span 
+                key={progress} 
+                initial={{ scale: 1.5, color: '#fff' }} 
+                animate={{ scale: 1, color: '#64748b' }}
+            >
+                {Math.round(progress)}%
+            </motion.span>
           </div>
           <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 transition-all duration-500"
-              style={{ width: `${progress}%` }}
+            <motion.div 
+              className="h-full bg-gradient-to-r from-indigo-500 to-cyan-400"
+              initial={{ width: 0 }}
+              animate={{ width: `${progress}%` }}
+              transition={{ type: "spring", stiffness: 50, damping: 10 }}
             />
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <AnimatePresence mode='popLayout'>
         {sortedGoals.length === 0 ? (
-          <div className="col-span-full p-8 border border-dashed border-slate-800 rounded-2xl text-center text-slate-500">
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            className="col-span-full p-8 border border-dashed border-slate-800 rounded-2xl text-center text-slate-500"
+          >
             No goals set yet. Click "New Goal" to get started!
-          </div>
+          </motion.div>
         ) : (
           sortedGoals.map(goal => {
             const status = logs[todayStr]?.[goal.id] || 'pending';
@@ -104,42 +188,51 @@ const TodayFocus: React.FC<TodayFocusProps> = ({ goals, logs, onToggle }) => {
             const isSkipped = status === 'skipped';
 
             return (
-              <div 
+              <motion.div 
+                layout
                 key={goal.id}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                whileHover={{ y: -4 }}
+                transition={{ type: "spring", stiffness: 300, damping: 25 }}
                 className={`
-                  relative p-4 rounded-2xl border transition-all duration-300 group
+                  relative p-4 rounded-2xl border transition-colors duration-300 group
                   ${isCompleted 
                     ? 'bg-slate-800/80 border-indigo-500/30 shadow-lg shadow-indigo-500/10' 
                     : isSkipped 
-                      ? 'bg-slate-800/40 border-rose-500/20 opacity-75'
+                      ? 'bg-slate-900/40 border-slate-800 opacity-60 grayscale-[0.5]'
                       : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-800/60'
                   }
                 `}
               >
-                {/* Time Badge (Top Right) */}
+                {/* Time Badge */}
                 {goal.time && (
                     <div className={`absolute top-4 right-4 text-xs font-medium flex items-center gap-1.5 ${isCompleted ? 'text-indigo-300' : 'text-slate-400'}`}>
                         <Clock size={12} />
-                        {formatTime(goal.time)}
-                        {goal.reminderEnabled && <Bell size={10} className={isCompleted ? 'text-indigo-400' : 'text-amber-500'} />}
+                        {goal.time}
                     </div>
                 )}
 
                 <div className="flex justify-between items-start mt-2">
                   <div className="flex items-center gap-3">
-                    <div className={`
-                      w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-colors
-                      ${isCompleted ? 'bg-indigo-500/20' : 'bg-slate-800'}
-                    `}>
+                    <motion.div 
+                        whileTap={{ scale: 0.8 }}
+                        className={`
+                          w-12 h-12 rounded-2xl flex items-center justify-center text-2xl transition-colors
+                          ${isCompleted ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/40' : 'bg-slate-800 text-slate-400'}
+                          ${isSkipped ? 'bg-slate-800 text-slate-600' : ''}
+                        `}
+                    >
                       {goal.icon}
-                    </div>
+                    </motion.div>
                     <div>
-                      <h3 className={`font-semibold ${isCompleted ? 'text-white' : 'text-slate-200'} pr-12`}>
+                      <h3 className={`font-bold ${isCompleted ? 'text-white' : 'text-slate-200'} pr-8`}>
                         {goal.title}
                       </h3>
-                      <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
+                      <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1">
                         <Flame size={12} className={streak > 0 ? 'text-amber-500 fill-amber-500' : 'text-slate-600'} />
-                        <span className={streak > 0 ? 'text-amber-500 font-medium' : ''}>
+                        <span className={streak > 0 ? 'text-amber-500 font-bold' : ''}>
                           {streak} day streak
                         </span>
                       </div>
@@ -147,49 +240,48 @@ const TodayFocus: React.FC<TodayFocusProps> = ({ goals, logs, onToggle }) => {
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-2 mt-4">
+                <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-800/50">
                   {status === 'pending' ? (
                     <>
-                      <button
-                        onClick={() => onToggle(goal.id, 'skipped')}
-                        className="p-2 rounded-lg text-slate-500 hover:bg-rose-500/10 hover:text-rose-500 transition-colors"
-                        title="Skip"
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9, rotate: -5 }}
+                        onClick={(e) => handleAction(e, goal.id, 'skip')}
+                        className="flex-1 py-2 rounded-xl bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-rose-400 font-bold text-sm transition-colors flex items-center justify-center gap-2"
                       >
-                        <X size={18} />
-                      </button>
-                      <button
-                        onClick={() => onToggle(goal.id, 'completed')}
-                        className="p-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-900/20 transition-all hover:scale-105 active:scale-95"
-                        title="Complete"
+                        <X size={16} /> Skip
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={(e) => handleAction(e, goal.id, 'complete')}
+                        className="flex-[2] py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-600/20 font-bold text-sm transition-colors flex items-center justify-center gap-2"
                       >
-                        <Check size={18} />
-                      </button>
+                        <Check size={18} strokeWidth={3} /> DONE
+                      </motion.button>
                     </>
                   ) : (
-                    <button
-                      onClick={() => onToggle(goal.id, 'pending')}
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      onClick={(e) => handleAction(e, goal.id, 'undo')}
                       className={`
-                        px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors
+                        w-full py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors uppercase tracking-wider
                         ${isCompleted 
                           ? 'bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20' 
-                          : 'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20'
+                          : 'bg-slate-800 text-slate-500 hover:text-slate-300'
                         }
                       `}
                     >
                       <RotateCcw size={12} />
-                      Undo
-                    </button>
+                      Undo Status
+                    </motion.button>
                   )}
                 </div>
-
-                {/* Progress bar hint at bottom */}
-                {isCompleted && (
-                  <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-500/50 rounded-b-2xl animate-pulse" />
-                )}
-              </div>
+              </motion.div>
             );
           })
         )}
+        </AnimatePresence>
       </div>
     </div>
   );

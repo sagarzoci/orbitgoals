@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 
 // Cast import.meta to any to avoid type errors in some environments
 const env = (import.meta as any).env;
@@ -18,11 +19,13 @@ const firebaseConfig = {
 let app;
 let authExport;
 let googleProviderExport;
+let dbExport;
 
 try {
   app = initializeApp(firebaseConfig);
   authExport = getAuth(app);
   googleProviderExport = new GoogleAuthProvider();
+  dbExport = getFirestore(app);
 } catch (error) {
   console.error("Firebase Initialization Error:", error);
 }
@@ -31,3 +34,4 @@ try {
 // We use non-null assertion (!) because in a valid setup these will exist
 export const auth = authExport!;
 export const googleProvider = googleProviderExport!;
+export const db = dbExport!;

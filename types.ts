@@ -1,3 +1,4 @@
+import React from 'react';
 
 export interface Goal {
   id: string;
@@ -45,6 +46,14 @@ export interface UserStats {
   perfectDays: number;
   totalPoints: number;
   level: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  text: string;
+  sender: 'user' | 'ai' | 'agent';
+  timestamp: any;
+  isTyping?: boolean;
 }
 
 export const ICONS = ['🎯', '💧', '🏃', '📚', '🧘', '💰', '🥦', '💻', '🎨', '🎵', '🛌', '💊', '🧹', '🧠'];

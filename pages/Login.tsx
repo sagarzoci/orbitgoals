@@ -35,7 +35,12 @@ const Login: React.FC = () => {
       await loginWithGoogle();
       navigate('/app');
     } catch (err: any) {
-      setError(err.message || 'Failed to authenticate with Google');
+      // Check specifically for domain error
+      if (err.message && (err.message.includes('Domain not authorized') || err.message.includes('unauthorized-domain'))) {
+        setError("Domain not authorized by Firebase. Please use 'Continue as Guest' for testing.");
+      } else {
+        setError(err.message || 'Failed to authenticate with Google');
+      }
     } finally {
       setIsGoogleLoading(false);
     }
