@@ -4,13 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>OrbitGoals</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
-      // Polyfill for process.env to ensure SDK compatibility
-      window.process = { env: { API_KEY: '' } };
-
-      // Tailwind config for CDN usage
       tailwind.config = {
         theme: {
           extend: {
@@ -41,11 +37,11 @@
         }
       }
     </script>
+    <script>
+      // Polyfill for process.env to ensure SDK compatibility
+      window.process = { env: { API_KEY: '' } };
+    </script>
     <style>
-      body {
-        background-color: #020617;
-        color: #f8fafc;
-      }
       /* Custom scrollbar styles */
       ::-webkit-scrollbar {
         width: 8px;

@@ -14,6 +14,18 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  photoURL?: string;
+  phoneNumber?: string;
+  bio?: string;
+}
+
+export interface LeaderboardEntry {
+  userId: string;
+  displayName: string;
+  photoURL?: string;
+  points: number;
+  tasksCompleted: number;
+  rank?: number;
 }
 
 export type CompletionStatus = 'completed' | 'skipped' | 'pending';

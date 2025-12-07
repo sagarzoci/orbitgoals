@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import PrivacyPage from './pages/PrivacyPage';
 import AboutUs from './pages/AboutUs';
+import LeaderboardPage from './pages/LeaderboardPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 const App: React.FC = () => {
@@ -22,6 +23,7 @@ const App: React.FC = () => {
           
           <Route element={<ProtectedRoute />}>
             <Route path="/app" element={<Dashboard />} />
+            <Route path="/leaderboard" element={<LeaderboardPage />} />
           </Route>
           
           <Route path="*" element={<Navigate to="/" replace />} />

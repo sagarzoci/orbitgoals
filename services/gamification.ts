@@ -1,4 +1,3 @@
-
 import { DailyLogs, Goal, UserStats } from "../types";
 
 export const POINTS_PER_COMPLETION = 10;
@@ -17,29 +16,23 @@ export const calculateStats = (goals: Goal[], logs: DailyLogs): UserStats => {
       totalCompleted += dayCompletedCount;
     }
 
-    // A perfect day is when all ACTIVE goals for that day were completed
-    // (Simplification: assuming all current goals were active then, 
-    // real app might check creation date)
     if (goals.length > 0 && dayCompletedCount === goals.length) {
       perfectDays++;
     }
   });
 
-  // 2. Calculate Streaks (simplified: best current streak among all goals)
+  // 2. Calculate Streaks
   let currentStreak = 0;
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
   
-  // We check each goal's streak and take the max
   goals.forEach(goal => {
     let goalStreak = 0;
     let d = new Date(today);
     
-    // Check today first
     const isTodayDone = logs[todayStr]?.[goal.id] === 'completed';
     if (isTodayDone) goalStreak++;
 
-    // Iterate backwards up to 365 days
     for (let i = 1; i < 365; i++) {
       const prevDate = new Date(d);
       prevDate.setDate(prevDate.getDate() - i);
@@ -55,12 +48,9 @@ export const calculateStats = (goals: Goal[], logs: DailyLogs): UserStats => {
   });
 
   // 3. Calculate Points
-  // Base points + bonuses
   const totalPoints = (totalCompleted * POINTS_PER_COMPLETION) + (perfectDays * POINTS_PER_PERFECT_DAY);
 
-  // 4. Calculate Level (Simple linear progression for now: Level 1 = 0-100, Lvl 2 = 101-300, etc)
-  // Formula: Level = Math.floor(Math.sqrt(points / 100)) + 1 (Exponential curve)
-  // Or simple: 1 level every 200 points
+  // 4. Calculate Level
   const level = Math.floor(totalPoints / 200) + 1;
 
   return {
@@ -77,7 +67,7 @@ export const ACHIEVEMENTS_LIST = [
     id: 'rookie',
     title: 'Rookie Orbit',
     description: 'Complete your first habit.',
-    threshold: 1, // 1 completion
+    threshold: 1,
     metric: 'totalCompleted',
     icon: '🚀'
   },
@@ -117,7 +107,6 @@ export const ACHIEVEMENTS_LIST = [
 
 export const getUnlockedAchievements = (stats: UserStats) => {
   return ACHIEVEMENTS_LIST.filter(achievement => {
-    // @ts-ignore - dynamic access to stats
-    return stats[achievement.metric] >= achievement.threshold;
+    return stats[achievement.metric as keyof UserStats] >= achievement.threshold;
   }).map(a => a.id);
 };

@@ -8,7 +8,6 @@ import {
   onAuthStateChanged,
   updateProfile
 } from 'firebase/auth';
-// CORRECTED: Use explicit relative path to the root firebase.ts file
 import { auth, googleProvider } from '../firebase';
 
 interface AuthContextType {
@@ -18,6 +17,7 @@ interface AuthContextType {
   loginWithGoogle: () => Promise<void>;
   loginAsGuest: () => void;
   logout: () => void;
+  updateUserProfile: (data: Partial<User>) => Promise<void>;
   isAuthenticated: boolean;
   loading: boolean;
 }
@@ -28,39 +28,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Helper to merge Firebase user with local extra details (Bio, Phone)
+  // Since Firebase Auth doesn't store 'bio' or 'phone' (without SMS verif) natively on the object easily
+  const mergeUserWithLocalData = (firebaseUser: any): User => {
+    const localDataKey = `orbit_user_extras_${firebaseUser.uid}`;
+    const localData = localStorage.getItem(localDataKey);
+    const parsedExtras = localData ? JSON.parse(localData) : {};
+
+    return {
+      id: firebaseUser.uid,
+      email: firebaseUser.email || '',
+      name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+      photoURL: firebaseUser.photoURL || undefined,
+      phoneNumber: parsedExtras.phoneNumber || undefined,
+      bio: parsedExtras.bio || undefined
+    };
+  };
+
   useEffect(() => {
-    // Listen for Firebase Auth state changes
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        const appUser: User = {
-          id: firebaseUser.uid,
-          email: firebaseUser.email || '',
-          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User'
-        };
-        setUser(appUser);
-        localStorage.setItem('orbit_current_user', JSON.stringify(appUser));
-        setLoading(false);
-      } else {
-        // If no Firebase user, check for Guest User persistence
-        const stored = localStorage.getItem('orbit_current_user');
-        if (stored) {
-          try {
-            const parsed = JSON.parse(stored);
-            if (parsed.id === 'guest-user-123') {
-              setUser(parsed);
-              setLoading(false);
-              return;
+    let unsubscribe = () => {};
+    
+    try {
+        unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+        if (firebaseUser) {
+            const appUser = mergeUserWithLocalData(firebaseUser);
+            setUser(appUser);
+            setLoading(false);
+        } else {
+            // Check for Guest User persistence
+            const stored = localStorage.getItem('orbit_current_user');
+            if (stored) {
+              try {
+                  const parsed = JSON.parse(stored);
+                  if (parsed.id === 'guest-user-123') {
+                    setUser(parsed);
+                    setLoading(false);
+                    return;
+                  }
+              } catch (e) {
+                  console.error("Failed to parse stored user", e);
+              }
             }
-          } catch (e) {
-            console.error("Failed to parse stored user", e);
-          }
+            
+            setUser(null);
+            setLoading(false);
         }
-        
-        setUser(null);
-        localStorage.removeItem('orbit_current_user');
+        });
+    } catch (e) {
+        console.warn("Auth initialization failed", e);
         setLoading(false);
-      }
-    });
+    }
 
     return () => unsubscribe();
   }, []);
@@ -77,7 +94,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signup = async (name: string, email: string, password: string) => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      // Update display name immediately after signup
       await updateProfile(userCredential.user, {
         displayName: name
       });
@@ -107,7 +123,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const guestUser: User = {
       id: 'guest-user-123',
       email: 'guest@orbitgoals.com',
-      name: 'Guest Explorer'
+      name: 'Guest Explorer',
+      bio: 'Just exploring the universe of habits.',
+      phoneNumber: ''
     };
     setUser(guestUser);
     localStorage.setItem('orbit_current_user', JSON.stringify(guestUser));
@@ -123,7 +141,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('orbit_current_user');
   };
 
-  // Helper to make Firebase error codes human readable
+  const updateUserProfile = async (data: Partial<User>) => {
+    if (!user) return;
+
+    // 1. Guest Mode Update
+    if (user.id === 'guest-user-123') {
+       const updated = { ...user, ...data };
+       setUser(updated);
+       localStorage.setItem('orbit_current_user', JSON.stringify(updated));
+       return;
+    } 
+    
+    // 2. Firebase User Update
+    if (auth.currentUser) {
+       // Update core firebase profile (Name, Photo)
+       if (data.name || data.photoURL) {
+          await updateProfile(auth.currentUser, { 
+            displayName: data.name || user.name, 
+            photoURL: data.photoURL || user.photoURL 
+          });
+       }
+
+       // Update Extras (Phone, Bio) in LocalStorage (Acting as DB)
+       // In a full app, this would go to Firestore
+       const extras = {
+         phoneNumber: data.phoneNumber,
+         bio: data.bio
+       };
+       localStorage.setItem(`orbit_user_extras_${user.id}`, JSON.stringify(extras));
+
+       // Update Local State
+       setUser(prev => prev ? { ...prev, ...data } : null);
+    }
+  };
+
   const mapAuthError = (code: string): string => {
     switch (code) {
       case 'auth/invalid-email': return 'Invalid email address.';
@@ -132,10 +183,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       case 'auth/wrong-password': return 'Incorrect password.';
       case 'auth/email-already-in-use': return 'Email is already registered.';
       case 'auth/weak-password': return 'Password should be at least 6 characters.';
-      case 'auth/popup-closed-by-user': return 'Sign in was cancelled.';
-      case 'auth/api-key-not-valid': return 'Firebase API Key is invalid. Try Guest Mode.';
-      case 'auth/operation-not-allowed': return 'Google Sign-In not enabled in Firebase Console.';
-      case 'auth/unauthorized-domain': return 'Domain not authorized. Add to Firebase Console > Auth > Settings.';
       default: return `Authentication failed (${code}). Try Guest Mode.`;
     }
   };
@@ -148,6 +195,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       loginWithGoogle,
       loginAsGuest,
       logout, 
+      updateUserProfile,
       isAuthenticated: !!user,
       loading 
     }}>
