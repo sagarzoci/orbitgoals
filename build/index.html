@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OrbitGoals</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+            colors: {
+              slate: {
+                850: '#1e293b',
+                950: '#020617',
+              }
+            },
+            animation: {
+              'fade-in': 'fadeIn 0.5s ease-in-out',
+              'float-up': 'floatUp 1s ease-out forwards',
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0' },
+                '100%': { opacity: '1' },
+              },
+              floatUp: {
+                '0%': { opacity: '1', transform: 'translateY(0) scale(1)' },
+                '100%': { opacity: '0', transform: 'translateY(-40px) scale(1.1)' },
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <script>
+      // Polyfill for process.env to ensure SDK compatibility
+      window.process = { env: { API_KEY: '' } };
+    </script>
+    <style>
+      /* Custom scrollbar styles */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #1e293b; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #475569; 
+        border-radius: 4px;
+      }
+    </style>
+
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
+    "recharts": "https://aistudiocdn.com/recharts@^3.5.1",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.10.1",
+    "framer-motion": "https://aistudiocdn.com/framer-motion@^12.23.25",
+    "vite": "https://aistudiocdn.com/vite@^7.2.6",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
+    "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
+    "firebase/auth": "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js",
+    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js",
+    "firebase/": "https://www.gstatic.com/firebasejs/10.8.0/",
+    "path": "https://aistudiocdn.com/path@^0.12.7",
+    "canvas-confetti": "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/+esm"
+  }
+}
+</script>
+  <script type="module" crossorigin src="/assets/index-VXFUXl8C.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/eventemitter3-_gqcMBhN.js">
+  <link rel="modulepreload" crossorigin href="/assets/react-B_Gs7igc.js">
+  <link rel="modulepreload" crossorigin href="/assets/scheduler-DYLXRpC5.js">
+  <link rel="modulepreload" crossorigin href="/assets/react-dom-l7l3c04N.js">
+  <link rel="modulepreload" crossorigin href="/assets/@remix-run-CRSx1x1U.js">
+  <link rel="modulepreload" crossorigin href="/assets/react-router-DoJyQWmf.js">
+  <link rel="modulepreload" crossorigin href="/assets/react-router-dom-CjCFkck1.js">
+  <link rel="modulepreload" crossorigin href="/assets/idb-BXWtuYvb.js">
+  <link rel="modulepreload" crossorigin href="/assets/@firebase-DWhLE4wL.js">
+  <link rel="modulepreload" crossorigin href="/assets/tslib-BGVaTf34.js">
+  <link rel="modulepreload" crossorigin href="/assets/firebase-nB0b4WFF.js">
+  <link rel="modulepreload" crossorigin href="/assets/motion-utils-Bq7ogXa8.js">
+  <link rel="modulepreload" crossorigin href="/assets/motion-dom-CSWiA5je.js">
+  <link rel="modulepreload" crossorigin href="/assets/framer-motion-DwurIxvg.js">
+  <link rel="modulepreload" crossorigin href="/assets/lucide-react-B-HOZLWJ.js">
+  <link rel="modulepreload" crossorigin href="/assets/clsx-B-dksMZM.js">
+  <link rel="modulepreload" crossorigin href="/assets/lodash-CXDtieD0.js">
+  <link rel="modulepreload" crossorigin href="/assets/tiny-invariant-BaFNuDhB.js">
+  <link rel="modulepreload" crossorigin href="/assets/react-is-DcAOwtUU.js">
+  <link rel="modulepreload" crossorigin href="/assets/d3-path-CimkQT29.js">
+  <link rel="modulepreload" crossorigin href="/assets/d3-shape-nwul2LtV.js">
+  <link rel="modulepreload" crossorigin href="/assets/prop-types-BbijBPcD.js">
+  <link rel="modulepreload" crossorigin href="/assets/fast-equals-jtQY2-DT.js">
+  <link rel="modulepreload" crossorigin href="/assets/react-smooth-CEa6dW6Y.js">
+  <link rel="modulepreload" crossorigin href="/assets/internmap-BkD7Hj8s.js">
+  <link rel="modulepreload" crossorigin href="/assets/d3-array-g_qRI3rN.js">
+  <link rel="modulepreload" crossorigin href="/assets/d3-time-g9mLz1m7.js">
+  <link rel="modulepreload" crossorigin href="/assets/d3-time-format-j2_s_XYn.js">
+  <link rel="modulepreload" crossorigin href="/assets/d3-color-9lF95FHy.js">
+  <link rel="modulepreload" crossorigin href="/assets/d3-interpolate-CvRPKVI0.js">
+  <link rel="modulepreload" crossorigin href="/assets/d3-format-CzD4bSOQ.js">
+  <link rel="modulepreload" crossorigin href="/assets/d3-scale-DCNNTN8k.js">
+  <link rel="modulepreload" crossorigin href="/assets/victory-vendor-eFgrrWDw.js">
+  <link rel="modulepreload" crossorigin href="/assets/decimal.js-light-ZKFLnszB.js">
+  <link rel="modulepreload" crossorigin href="/assets/recharts-scale-CEDTliZZ.js">
+  <link rel="modulepreload" crossorigin href="/assets/recharts-C9-N1AL-.js">
+  <link rel="modulepreload" crossorigin href="/assets/@google-ntgHyW5B.js">
+  <link rel="modulepreload" crossorigin href="/assets/canvas-confetti-B5JVzsfH.js">
+  <link rel="stylesheet" crossorigin href="/assets/index-DpuC3rfH.css">
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
