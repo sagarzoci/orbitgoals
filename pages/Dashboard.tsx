@@ -66,36 +66,6 @@ const Dashboard: React.FC = () => {
   // Calculate Stats for Gamification (Memoized)
   const userStats = useMemo(() => calculateStats(goals, logs), [goals, logs]);
 
-  // Calculate Longest Streak (All time)
-  const longestStreak = useMemo(() => {
-    const dates = Object.keys(logs).filter(date => 
-        Object.values(logs[date]).some(status => status === 'completed')
-    ).sort();
-    if (!dates.length) return 0;
-    
-    let max = 0;
-    let current = 0;
-    let prevDate: Date | null = null;
-    
-    dates.forEach(dateStr => {
-        const d = new Date(dateStr);
-        d.setHours(0,0,0,0);
-        
-        if (!prevDate) {
-            current = 1;
-        } else {
-            const diffTime = Math.abs(d.getTime() - prevDate.getTime());
-            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24)); 
-            
-            if (diffDays === 1) current++;
-            else if (diffDays > 1) current = 1;
-        }
-        if (current > max) max = current;
-        prevDate = d;
-    });
-    return max;
-  }, [logs]);
-
   const todayDate = new Date();
   const tYear = todayDate.getFullYear();
   const tMonth = String(todayDate.getMonth() + 1).padStart(2, '0');
@@ -321,15 +291,15 @@ const Dashboard: React.FC = () => {
 
       {/* Navbar */}
       <nav className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-30">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2 cursor-pointer group" onClick={() => navigate('/')}>
-            <div className="bg-indigo-600 p-2 rounded-lg group-hover:scale-105 transition-transform">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2 cursor-pointer group flex-shrink-0" onClick={() => navigate('/')}>
+            <div className="bg-indigo-600 p-1.5 sm:p-2 rounded-lg group-hover:scale-105 transition-transform">
               <Target size={20} className="text-white" />
             </div>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">OrbitGoals</h1>
+            <h1 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent hidden xs:block">OrbitGoals</h1>
           </div>
           
-          <div className="flex gap-4 items-center">
+          <div className="flex gap-2 sm:gap-4 items-center">
              <div 
                className="hidden md:flex flex-col items-end mr-2 cursor-pointer hover:opacity-80 transition"
                onClick={() => setActiveTab('profile')}
@@ -337,39 +307,42 @@ const Dashboard: React.FC = () => {
                 <span className="text-sm text-white font-medium">{profileName || user?.name}</span>
                 <span className="text-xs text-amber-500 font-bold">Lvl {userStats.level}</span>
              </div>
-            
-             <button 
-              onClick={() => navigate('/leaderboard')}
-              className="p-2 rounded-lg bg-slate-800 text-amber-400 hover:text-amber-300 hover:bg-slate-700 transition"
-              title="Global Leaderboard"
-            >
-              <Trophy size={20} />
-            </button>
+             
+             {/* Mobile-friendly action bar */}
+             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar mask-gradient-right pb-1 sm:pb-0">
+                <button 
+                  onClick={() => navigate('/leaderboard')}
+                  className="p-2 rounded-lg bg-slate-800 text-amber-400 hover:text-amber-300 hover:bg-slate-700 transition flex-shrink-0"
+                  title="Global Leaderboard"
+                >
+                  <Trophy size={18} />
+                </button>
 
-            <button onClick={() => setActiveTab(activeTab === 'achievements' ? 'overview' : 'achievements')} className={`p-2 rounded-lg transition ${activeTab === 'achievements' ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-800 text-slate-300 hover:text-white'}`}>
-              <Award size={20} />
-            </button>
-             <button onClick={() => setActiveTab('profile')} className={`p-2 rounded-lg transition ${activeTab === 'profile' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-800 text-slate-300 hover:text-white'}`}>
-              <UserIcon size={20} />
-            </button>
-            <button onClick={() => setIsGoalModalOpen(true)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg transition">
-              <Settings size={20} />
-            </button>
-            <button onClick={() => setIsGoalModalOpen(true)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-lg shadow-indigo-900/20">
-              <Plus size={16} /> <span className="hidden sm:inline">New Goal</span>
-            </button>
-            <button onClick={handleLogout} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition">
-                <LogOut size={20} />
-            </button>
+                <button onClick={() => setActiveTab(activeTab === 'achievements' ? 'overview' : 'achievements')} className={`p-2 rounded-lg transition flex-shrink-0 ${activeTab === 'achievements' ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-800 text-slate-300 hover:text-white'}`}>
+                  <Award size={18} />
+                </button>
+                <button onClick={() => setActiveTab('profile')} className={`p-2 rounded-lg transition flex-shrink-0 ${activeTab === 'profile' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-800 text-slate-300 hover:text-white'}`}>
+                  <UserIcon size={18} />
+                </button>
+                <button onClick={() => setIsGoalModalOpen(true)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg transition flex-shrink-0">
+                  <Settings size={18} />
+                </button>
+                <button onClick={() => setIsGoalModalOpen(true)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 sm:px-4 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-lg shadow-indigo-900/20 flex-shrink-0 whitespace-nowrap">
+                  <Plus size={16} /> <span className="hidden sm:inline">New Goal</span>
+                </button>
+                <button onClick={handleLogout} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition flex-shrink-0">
+                    <LogOut size={18} />
+                </button>
+             </div>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto px-6 py-8 animate-fade-in">
+      <main className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8 animate-fade-in">
         {activeTab === 'overview' && (
           <>
             <TodayFocus goals={goals} logs={logs} onToggle={handleTodayToggle} />
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 mb-6 sm:mb-8">
                <div className="lg:col-span-3"><AICoach goals={goals} logs={logs} currentDate={currentDate} /></div>
             </div>
             <Stats goals={goals} logs={logs} currentDate={currentDate} />
@@ -378,10 +351,10 @@ const Dashboard: React.FC = () => {
         )}
         
         {activeTab === 'achievements' && (
-          <div className="max-w-3xl mx-auto space-y-8 animate-fade-in">
-             <div className="flex items-center gap-4 mb-6">
+          <div className="max-w-3xl mx-auto space-y-6 sm:space-y-8 animate-fade-in">
+             <div className="flex items-center gap-4 mb-4 sm:mb-6">
                 <button onClick={() => setActiveTab('overview')} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 transition"><X size={24} /></button>
-                <h2 className="text-3xl font-bold text-white">Your Achievements</h2>
+                <h2 className="text-2xl sm:text-3xl font-bold text-white">Your Achievements</h2>
              </div>
              <AchievementsWidget stats={userStats} />
           </div>
@@ -389,25 +362,25 @@ const Dashboard: React.FC = () => {
 
         {activeTab === 'profile' && (
           <div className="max-w-2xl mx-auto animate-fade-in pb-12">
-             <div className="flex items-center gap-4 mb-8">
+             <div className="flex items-center gap-4 mb-6 sm:mb-8">
                 <button onClick={() => setActiveTab('overview')} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 transition"><X size={24} /></button>
-                <h2 className="text-3xl font-bold text-white">Commander Profile</h2>
+                <h2 className="text-2xl sm:text-3xl font-bold text-white">Commander Profile</h2>
              </div>
 
-             <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+             <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-8 shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-br from-indigo-600/10 to-transparent rounded-full blur-[80px] pointer-events-none -mr-20 -mt-20"></div>
 
-                <form onSubmit={handleUpdateProfile} className="relative z-10 flex flex-col gap-8">
+                <form onSubmit={handleUpdateProfile} className="relative z-10 flex flex-col gap-6 sm:gap-8">
                    
                    {/* Avatar Upload Section */}
                    <div className="flex flex-col items-center">
                       <div className="relative group">
-                        <div className="w-32 h-32 rounded-full ring-4 ring-slate-800 overflow-hidden bg-slate-800 shadow-xl cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                        <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full ring-4 ring-slate-800 overflow-hidden bg-slate-800 shadow-xl cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                            {profilePhoto ? (
                               <img src={profilePhoto} alt="Profile" className="w-full h-full object-cover group-hover:opacity-70 transition-opacity" />
                            ) : (
                               <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-500 group-hover:bg-slate-700 transition">
-                                 <UserIcon size={48} />
+                                 <UserIcon size={40} className="sm:w-12 sm:h-12" />
                               </div>
                            )}
                            
@@ -473,7 +446,7 @@ const Dashboard: React.FC = () => {
                    <div className="bg-slate-950/30 rounded-xl p-4 border border-slate-800/50 flex flex-col md:flex-row gap-4 justify-between items-center text-xs text-slate-500">
                       <div className="flex items-center gap-2">
                          <Mail size={14} />
-                         <span>{user?.email}</span>
+                         <span className="break-all">{user?.email}</span>
                       </div>
                       <div className="flex items-center gap-2">
                          <Shield size={14} />

@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, useScroll, useTransform, useSpring, useMotionValue } from 'framer-motion';
-import { Target, BarChart2, Zap, Shield, ArrowRight, Star, CheckCircle2, Clock, Calendar } from 'lucide-react';
+import { Target, BarChart2, Zap, Shield, ArrowRight, Star, CheckCircle2, Clock, Calendar, LayoutDashboard } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: containerRef });
   const y = useTransform(scrollYProgress, [0, 1], [0, -50]);
@@ -63,18 +65,30 @@ const LandingPage: React.FC = () => {
           animate={{ opacity: 1, x: 0 }}
           className="flex gap-4"
         >
-          <button 
-            onClick={() => navigate('/login')}
-            className="hidden sm:block px-5 py-2.5 rounded-full bg-slate-900/50 hover:bg-slate-800 border border-slate-700/50 text-slate-300 hover:text-white text-sm font-medium transition backdrop-blur-md"
-          >
-            Log In
-          </button>
-          <button 
-            onClick={() => navigate('/signup')}
-            className="px-6 py-2.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold transition shadow-lg shadow-indigo-900/30 hover:shadow-indigo-600/40 hover:-translate-y-0.5"
-          >
-            Get Started
-          </button>
+          {user ? (
+             <button 
+               onClick={() => navigate('/app')}
+               className="px-6 py-2.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold transition shadow-lg shadow-indigo-900/30 hover:shadow-indigo-600/40 hover:-translate-y-0.5 flex items-center gap-2"
+             >
+               <LayoutDashboard size={18} />
+               Dashboard
+             </button>
+          ) : (
+             <>
+                <button 
+                  onClick={() => navigate('/login')}
+                  className="hidden sm:block px-5 py-2.5 rounded-full bg-slate-900/50 hover:bg-slate-800 border border-slate-700/50 text-slate-300 hover:text-white text-sm font-medium transition backdrop-blur-md"
+                >
+                  Log In
+                </button>
+                <button 
+                  onClick={() => navigate('/signup')}
+                  className="px-6 py-2.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold transition shadow-lg shadow-indigo-900/30 hover:shadow-indigo-600/40 hover:-translate-y-0.5"
+                >
+                  Get Started
+                </button>
+             </>
+          )}
         </motion.div>
       </nav>
 
@@ -109,10 +123,10 @@ const LandingPage: React.FC = () => {
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start items-center">
             <button 
-              onClick={() => navigate('/signup')}
+              onClick={() => navigate(user ? '/app' : '/signup')}
               className="group px-8 py-4 bg-white text-slate-950 hover:bg-slate-200 rounded-full font-bold text-lg transition-all transform hover:scale-105 shadow-2xl shadow-indigo-900/20 flex items-center gap-2"
             >
-              Start Tracking Free 
+              {user ? 'Go to Dashboard' : 'Start Tracking Free'} 
               <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
             </button>
             <button 
@@ -362,10 +376,10 @@ const LandingPage: React.FC = () => {
              <h2 className="text-3xl md:text-4xl font-bold text-white mb-6 relative z-10">Ready to launch your potential?</h2>
              <p className="text-slate-400 mb-8 max-w-xl mx-auto relative z-10">Join the community of achievers. No credit card required, just your goals.</p>
              <button 
-                onClick={() => navigate('/signup')}
+                onClick={() => navigate(user ? '/app' : '/signup')}
                 className="relative z-10 px-8 py-4 bg-white text-slate-950 hover:bg-indigo-50 rounded-full font-bold text-lg transition shadow-xl hover:shadow-2xl hover:-translate-y-1"
              >
-                Get Started Now
+                {user ? 'Launch Dashboard' : 'Get Started Now'}
              </button>
           </motion.div>
       </div>

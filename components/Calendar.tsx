@@ -81,7 +81,7 @@ const Calendar: React.FC<CalendarProps> = ({
 
     // Padding for start of month
     for (let i = 0; i < startDay; i++) {
-      days.push(<div key={`empty-${i}`} className="h-28 md:h-32 bg-transparent" />);
+      days.push(<div key={`empty-${i}`} className="h-16 sm:h-24 md:h-32 bg-transparent" />);
     }
 
     for (let day = 1; day <= daysInMonth; day++) {
@@ -105,7 +105,7 @@ const Calendar: React.FC<CalendarProps> = ({
           onClick={() => onDayClick(dateStr)}
           whileHover={{ scale: 0.98, translateY: -2 }}
           className={`
-            relative h-28 md:h-32 rounded-2xl border p-3 cursor-pointer overflow-hidden group
+            relative h-16 sm:h-24 md:h-32 rounded-xl sm:rounded-2xl border p-1 sm:p-3 cursor-pointer overflow-hidden group
             transition-colors duration-300 flex flex-col justify-between
             ${isToday ? 'border-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.5)] ring-1 ring-indigo-400' : 'border-slate-800 hover:border-slate-600'}
             ${isPerfect ? 'border-emerald-500/50' : ''}
@@ -125,22 +125,22 @@ const Calendar: React.FC<CalendarProps> = ({
             {/* Top Row: Date & Badges */}
             <div className="relative z-10 flex justify-between items-start">
                 <span className={`
-                  text-sm font-bold w-7 h-7 flex items-center justify-center rounded-lg transition-colors
+                  text-xs sm:text-sm font-bold w-5 h-5 sm:w-7 sm:h-7 flex items-center justify-center rounded-lg transition-colors
                   ${isToday ? 'bg-indigo-600 text-white shadow-lg scale-110' : 'text-slate-400 bg-slate-900/40'}
                 `}>
                   {day}
                 </span>
                 
                 {isPerfect && !isFuture && (
-                   <div className="bg-emerald-500 text-white p-1 rounded-full shadow-lg shadow-emerald-900/20 animate-pulse">
-                     <Trophy size={12} fill="currentColor" />
+                   <div className="bg-emerald-500 text-white p-0.5 sm:p-1 rounded-full shadow-lg shadow-emerald-900/20 animate-pulse">
+                     <Trophy className="w-2 h-2 sm:w-3 sm:h-3" fill="currentColor" />
                    </div>
                 )}
             </div>
 
             {/* Bottom Row: Dots with Time Tooltips */}
-            <div className="relative z-10 flex flex-wrap gap-1.5 content-end">
-                {goals.slice(0, 8).map(g => {
+            <div className="relative z-10 flex flex-wrap gap-0.5 sm:gap-1.5 content-end">
+                {goals.slice(0, 8).map((g, i) => {
                   const status = dayLogs[g.id];
                   let dotClass = 'bg-slate-800 ring-1 ring-slate-700'; // Default pending/future
                   
@@ -154,16 +154,19 @@ const Calendar: React.FC<CalendarProps> = ({
                   const timeLabel = g.time ? ` @ ${g.time}` : '';
                   const tooltip = `${g.title}${timeLabel}: ${status || 'pending'}`;
 
+                  // Hide dots > 5 on small screens to prevent overflow
+                  const visibilityClass = i >= 4 ? 'hidden sm:block' : '';
+
                   return (
                     <div 
                       key={g.id} 
-                      className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${dotClass} cursor-help`}
+                      className={`w-1.5 h-1.5 sm:w-2.5 sm:h-2.5 rounded-full transition-all duration-300 ${dotClass} cursor-help ${visibilityClass}`}
                       title={tooltip}
                     />
                   );
                 })}
                 {goals.length > 8 && (
-                    <span className="text-[10px] text-slate-500 flex items-center">+</span>
+                    <span className="text-[8px] sm:text-[10px] text-slate-500 flex items-center">+</span>
                 )}
             </div>
             
@@ -176,15 +179,15 @@ const Calendar: React.FC<CalendarProps> = ({
   };
 
   return (
-    <div className="bg-slate-900/80 backdrop-blur-xl rounded-3xl border border-slate-800 p-6 md:p-8 shadow-2xl relative overflow-hidden">
+    <div className="bg-slate-900/80 backdrop-blur-xl rounded-3xl border border-slate-800 p-4 sm:p-8 shadow-2xl relative overflow-hidden">
       
       {/* Decorative Background Blob */}
       <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-600/5 rounded-full blur-[100px] pointer-events-none -mr-20 -mt-20" />
 
       {/* Header */}
-      <div className="relative z-10 flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+      <div className="relative z-10 flex flex-col md:flex-row justify-between items-center mb-6 sm:mb-8 gap-4">
         <div className="flex items-center gap-4">
-            <h2 className="text-3xl font-bold text-slate-100 tracking-tight">{monthName}</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-100 tracking-tight">{monthName}</h2>
             <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800/50 border border-slate-700 text-xs font-medium text-slate-400">
                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
                 {monthEfficiency}% Consistency
@@ -214,10 +217,11 @@ const Calendar: React.FC<CalendarProps> = ({
       </div>
       
       {/* Weekday Header */}
-      <div className="grid grid-cols-7 gap-3 mb-4 text-center">
-        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-          <div key={d} className="text-xs font-bold text-slate-500 uppercase tracking-widest py-2">
-            {d}
+      <div className="grid grid-cols-7 gap-1 sm:gap-3 mb-2 sm:mb-4 text-center">
+        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+          <div key={i} className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-widest py-1 sm:py-2">
+            <span className="hidden sm:inline">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][i]}</span>
+            <span className="sm:hidden">{d}</span>
           </div>
         ))}
       </div>
@@ -232,26 +236,26 @@ const Calendar: React.FC<CalendarProps> = ({
           animate="center"
           exit="exit"
           transition={{ duration: 0.3, ease: "easeInOut" }}
-          className="grid grid-cols-7 gap-2 md:gap-3"
+          className="grid grid-cols-7 gap-1 sm:gap-3"
         >
           {generateDays()}
         </motion.div>
       </AnimatePresence>
       
       {/* Legend / Footer info */}
-      <div className="mt-6 pt-6 border-t border-slate-800 flex justify-between items-center text-xs text-slate-500">
-         <div className="flex gap-4">
-             <div className="flex items-center gap-2">
-                 <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
-                 <span>Completed</span>
+      <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-slate-800 flex justify-between items-center text-xs text-slate-500">
+         <div className="flex gap-2 sm:gap-4 flex-wrap">
+             <div className="flex items-center gap-1.5">
+                 <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-indigo-500"></div>
+                 <span>Done</span>
              </div>
-             <div className="flex items-center gap-2">
-                 <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
-                 <span>Perfect Day</span>
+             <div className="flex items-center gap-1.5">
+                 <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-emerald-500"></div>
+                 <span>Perfect</span>
              </div>
-             <div className="flex items-center gap-2">
-                 <div className="w-3 h-3 rounded-full bg-rose-500/20 ring-1 ring-rose-500/50"></div>
-                 <span>Skipped</span>
+             <div className="flex items-center gap-1.5">
+                 <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-rose-500/20 ring-1 ring-rose-500/50"></div>
+                 <span>Skip</span>
              </div>
          </div>
          <div className="hidden sm:block">

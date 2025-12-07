@@ -82,19 +82,19 @@ const Stats: React.FC<StatsProps> = ({ goals, logs, currentDate }) => {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 mb-6 sm:mb-8">
       {/* Bar Chart: Goal Consistency */}
-      <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700 backdrop-blur-sm">
+      <div className="bg-slate-800/50 p-4 sm:p-6 rounded-2xl border border-slate-700 backdrop-blur-sm">
         <h3 className="text-lg font-semibold text-slate-100 mb-4">Goal Consistency (%)</h3>
-        <div className="h-64 w-full">
+        <div className="h-48 sm:h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} layout="vertical" margin={{ left: 10, right: 10 }}>
+            <BarChart data={data} layout="vertical" margin={{ left: 0, right: 10 }}>
               <XAxis type="number" domain={[0, 100]} hide />
               <YAxis 
                 type="category" 
                 dataKey="name" 
-                width={100} 
-                tick={{ fill: '#cbd5e1', fontSize: 12 }} 
+                width={80} 
+                tick={{ fill: '#cbd5e1', fontSize: 10 }} 
                 axisLine={false}
                 tickLine={false}
               />
@@ -102,7 +102,7 @@ const Stats: React.FC<StatsProps> = ({ goals, logs, currentDate }) => {
                 contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }}
                 cursor={{ fill: '#334155', opacity: 0.4 }}
               />
-              <Bar dataKey="rate" radius={[0, 4, 4, 0]} barSize={20}>
+              <Bar dataKey="rate" radius={[0, 4, 4, 0]} barSize={16}>
                 {data.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={getColorHex(goals.find(g => g.title === entry.name)?.color || '')} />
                 ))}
@@ -113,9 +113,9 @@ const Stats: React.FC<StatsProps> = ({ goals, logs, currentDate }) => {
       </div>
 
       {/* Pie Chart: Overall Status */}
-      <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700 backdrop-blur-sm flex flex-col items-center justify-center">
+      <div className="bg-slate-800/50 p-4 sm:p-6 rounded-2xl border border-slate-700 backdrop-blur-sm flex flex-col items-center justify-center">
         <h3 className="text-lg font-semibold text-slate-100 mb-2">Monthly Breakdown</h3>
-        <div className="h-56 w-full flex items-center justify-center">
+        <div className="h-48 sm:h-56 w-full flex items-center justify-center">
           {pieData.length > 0 ? (
              <ResponsiveContainer width="100%" height="100%">
              <PieChart>
@@ -123,8 +123,8 @@ const Stats: React.FC<StatsProps> = ({ goals, logs, currentDate }) => {
                  data={pieData}
                  cx="50%"
                  cy="50%"
-                 innerRadius={60}
-                 outerRadius={80}
+                 innerRadius={50}
+                 outerRadius={70}
                  paddingAngle={5}
                  dataKey="value"
                >
@@ -139,7 +139,7 @@ const Stats: React.FC<StatsProps> = ({ goals, logs, currentDate }) => {
             <div className="text-slate-500">No logs yet this month</div>
           )}
         </div>
-        <div className="flex gap-4 mt-4 text-sm">
+        <div className="flex gap-4 mt-4 text-xs sm:text-sm">
            <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
               <span className="text-slate-300">Completed</span>

@@ -127,7 +127,7 @@ const TodayFocus: React.FC<TodayFocusProps> = ({ goals, logs, onToggle }) => {
   });
 
   return (
-    <div className="mb-8 animate-fade-in relative">
+    <div className="mb-6 sm:mb-8 animate-fade-in relative">
       <Mascot mood={mascotMood} onComplete={() => setMascotMood(null)} />
 
       {/* Render XP Popups */}
@@ -137,9 +137,9 @@ const TodayFocus: React.FC<TodayFocusProps> = ({ goals, logs, onToggle }) => {
 
       <div className="flex items-end justify-between mb-4">
         <div>
-          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+          <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
             Today's Focus
-            <span className="text-sm font-normal text-slate-500 bg-slate-800/50 px-2 py-0.5 rounded-full border border-slate-700">
+            <span className="text-sm font-normal text-slate-500 bg-slate-800/50 px-2 py-0.5 rounded-full border border-slate-700 hidden sm:inline-block">
               {new Date().toLocaleDateString('default', { weekday: 'long', month: 'short', day: 'numeric' })}
             </span>
           </h2>
@@ -219,15 +219,15 @@ const TodayFocus: React.FC<TodayFocusProps> = ({ goals, logs, onToggle }) => {
                     <motion.div 
                         whileTap={{ scale: 0.8 }}
                         className={`
-                          w-12 h-12 rounded-2xl flex items-center justify-center text-2xl transition-colors
+                          w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center text-xl sm:text-2xl transition-colors flex-shrink-0
                           ${isCompleted ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/40' : 'bg-slate-800 text-slate-400'}
                           ${isSkipped ? 'bg-slate-800 text-slate-600' : ''}
                         `}
                     >
                       {goal.icon}
                     </motion.div>
-                    <div>
-                      <h3 className={`font-bold ${isCompleted ? 'text-white' : 'text-slate-200'} pr-8`}>
+                    <div className="min-w-0">
+                      <h3 className={`font-bold truncate ${isCompleted ? 'text-white' : 'text-slate-200'} pr-8`}>
                         {goal.title}
                       </h3>
                       <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1">
@@ -240,24 +240,24 @@ const TodayFocus: React.FC<TodayFocusProps> = ({ goals, logs, onToggle }) => {
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-800/50">
+                <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-800/50 flex-wrap">
                   {status === 'pending' ? (
                     <>
                       <motion.button
-                        whileHover={{ scale: 1.1 }}
+                        whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.9, rotate: -5 }}
                         onClick={(e) => handleAction(e, goal.id, 'skip')}
-                        className="flex-1 py-2 rounded-xl bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-rose-400 font-bold text-sm transition-colors flex items-center justify-center gap-2"
+                        className="flex-1 min-w-[80px] py-2 rounded-xl bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-rose-400 font-bold text-xs sm:text-sm transition-colors flex items-center justify-center gap-2"
                       >
-                        <X size={16} /> Skip
+                        <X size={14} /> Skip
                       </motion.button>
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={(e) => handleAction(e, goal.id, 'complete')}
-                        className="flex-[2] py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-600/20 font-bold text-sm transition-colors flex items-center justify-center gap-2"
+                        className="flex-[2] min-w-[120px] py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-600/20 font-bold text-xs sm:text-sm transition-colors flex items-center justify-center gap-2"
                       >
-                        <Check size={18} strokeWidth={3} /> DONE
+                        <Check size={16} strokeWidth={3} /> DONE
                       </motion.button>
                     </>
                   ) : (
