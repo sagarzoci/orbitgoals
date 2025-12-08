@@ -40,4 +40,4 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
           app_location: "/" # Root folder of your project
-          output_location: "build" # Must match Vite outDir
+          output_location: "dist" # Must match Vite outDir
