@@ -3,7 +3,16 @@ import { DailyLogs, Goal, UserStats } from "../types";
 export const POINTS_PER_COMPLETION = 10;
 export const POINTS_PER_PERFECT_DAY = 50;
 
-export const calculateStats = (goals: Goal[], logs: DailyLogs): UserStats => {
+export type Tier = 'Bronze' | 'Silver' | 'Gold' | 'Diamond';
+
+export const getTierInfo = (level: number): { name: Tier; color: string; nextTierLevel: number } => {
+  if (level < 5) return { name: 'Bronze', color: 'text-amber-700', nextTierLevel: 5 };
+  if (level < 10) return { name: 'Silver', color: 'text-slate-300', nextTierLevel: 10 };
+  if (level < 20) return { name: 'Gold', color: 'text-yellow-400', nextTierLevel: 20 };
+  return { name: 'Diamond', color: 'text-cyan-400', nextTierLevel: 100 }; // Cap
+};
+
+export const calculateStats = (goals: Goal[], logs: DailyLogs, bonusPoints: number = 0): UserStats => {
   let totalCompleted = 0;
   let perfectDays = 0;
   
@@ -47,10 +56,11 @@ export const calculateStats = (goals: Goal[], logs: DailyLogs): UserStats => {
     if (goalStreak > currentStreak) currentStreak = goalStreak;
   });
 
-  // 3. Calculate Points
-  const totalPoints = (totalCompleted * POINTS_PER_COMPLETION) + (perfectDays * POINTS_PER_PERFECT_DAY);
+  // 3. Calculate Points (Base + Bonus)
+  const basePoints = (totalCompleted * POINTS_PER_COMPLETION) + (perfectDays * POINTS_PER_PERFECT_DAY);
+  const totalPoints = basePoints + bonusPoints;
 
-  // 4. Calculate Level
+  // 4. Calculate Level (Simple linear progression for now: 200xp per level)
   const level = Math.floor(totalPoints / 200) + 1;
 
   return {

@@ -10,6 +10,13 @@ export interface Goal {
   reminderEnabled?: boolean;
 }
 
+export interface NotificationSettings {
+  pushEnabled: boolean;
+  emailEnabled: boolean;
+  smartReminders: boolean;
+  reminderTime: string; // HH:MM format, e.g., "09:00"
+}
+
 export interface User {
   id: string;
   email: string;
@@ -17,6 +24,16 @@ export interface User {
   photoURL?: string;
   phoneNumber?: string;
   bio?: string;
+  coins?: number;
+  country?: string; // ISO Code e.g. 'US', 'IN', 'JP'
+  unlockedThemes?: string[];
+  activeTheme?: string;
+  // New Shop Features
+  unlockedAvatars?: string[];
+  activeAvatarFrame?: string;
+  activeBoosterExpiry?: number; // Timestamp for when booster expires
+  isPro?: boolean; // Premium status
+  notificationSettings?: NotificationSettings;
 }
 
 export interface LeaderboardEntry {
@@ -26,6 +43,9 @@ export interface LeaderboardEntry {
   points: number;
   tasksCompleted: number;
   rank?: number;
+  country?: string;
+  tier?: string;
+  avatarFrame?: string; // Visual frame class
 }
 
 export type CompletionStatus = 'completed' | 'skipped' | 'pending';
@@ -44,6 +64,23 @@ export interface AIAnalysisResult {
   motivationalQuote: string;
 }
 
+export interface HabitSuggestion {
+  title: string;
+  reason: string;
+  icon: string;
+  color: string;
+  time?: string;
+  difficulty: 'Easy' | 'Medium' | 'Hard';
+}
+
+export interface WeeklyReviewData {
+  weekScore: number;
+  summary: string;
+  bestDay: string;
+  focusArea: string;
+  actionItem: string;
+}
+
 export interface Achievement {
   id: string;
   title: string;
@@ -60,6 +97,16 @@ export interface UserStats {
   level: number;
 }
 
+export interface ShopItem {
+  id: string;
+  type: 'theme' | 'coupon' | 'badge' | 'avatar' | 'booster' | 'premium';
+  title: string;
+  description: string;
+  cost: number; // 0 for real money items
+  value?: string; // Hex code for theme, class for avatar, or coupon code
+  icon: React.ReactNode;
+}
+
 export const ICONS = ['🎯', '💧', '🏃', '📚', '🧘', '💰', '🥦', '💻', '🎨', '🎵', '🛌', '💊', '🧹', '🧠'];
 export const COLORS = [
   'bg-emerald-500', 
@@ -72,4 +119,17 @@ export const COLORS = [
   'bg-indigo-500',
   'bg-orange-500',
   'bg-teal-500'
+];
+
+export const COUNTRIES = [
+  { code: 'US', name: 'United States', flag: '🇺🇸' },
+  { code: 'GB', name: 'United Kingdom', flag: '🇬🇧' },
+  { code: 'CA', name: 'Canada', flag: '🇨🇦' },
+  { code: 'IN', name: 'India', flag: '🇮🇳' },
+  { code: 'JP', name: 'Japan', flag: '🇯🇵' },
+  { code: 'DE', name: 'Germany', flag: '🇩🇪' },
+  { code: 'FR', name: 'France', flag: '🇫🇷' },
+  { code: 'BR', name: 'Brazil', flag: '🇧🇷' },
+  { code: 'AU', name: 'Australia', flag: '🇦🇺' },
+  { code: 'Global', name: 'Earth', flag: '🌍' }
 ];

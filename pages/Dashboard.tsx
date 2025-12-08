@@ -6,12 +6,19 @@ import TodayFocus from '../components/TodayFocus';
 import AchievementsWidget from '../components/AchievementsWidget';
 import HabitTemplates from '../components/HabitTemplates';
 import Mascot, { MascotMood } from '../components/Mascot';
-import { Goal, DailyLogs, ICONS, COLORS, CompletionStatus } from '../types';
+import SpinWheel from '../components/SpinWheel';
+import RewardsShop from '../components/RewardsShop';
+import AnalyticsView from '../components/AnalyticsView';
+import MotivationBanner from '../components/MotivationBanner';
+import ProgressFeed from '../components/ProgressFeed';
+import { Goal, DailyLogs, ICONS, COLORS, CompletionStatus, COUNTRIES, ShopItem, NotificationSettings } from '../types';
 import { calculateStats, POINTS_PER_COMPLETION } from '../services/gamification';
 import { updateLeaderboardScore } from '../services/leaderboardService';
-import { Plus, X, Check, Target, LogOut, Settings, Lock, Clock, Bell, Award, User as UserIcon, Camera, Save, Loader, Mail, Shield, Phone, Edit3, Trophy } from 'lucide-react';
+import { checkProStatus } from '../services/paymentService';
+import { Plus, X, Check, Target, LogOut, Settings, Lock, Clock, Bell, Award, User as UserIcon, Camera, Save, Loader, Mail, Shield, Phone, Edit3, Trophy, ShoppingBag, Globe, Flame, BarChart2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import confetti from 'canvas-confetti';
 import { audioService } from '../services/audioService';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -19,12 +26,20 @@ import { motion, AnimatePresence } from 'framer-motion';
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user, logout, updateUserProfile } = useAuth();
+  const { showToast } = useToast();
 
-  // Storage Keys based on User ID
   const goalsKey = `orbit_goals_${user?.id}`;
   const logsKey = `orbit_logs_${user?.id}`;
+  const bonusKey = `orbit_bonus_${user?.id}`;
+  const coinsKey = `orbit_coins_${user?.id}`;
+  const lastSpinKey = `orbit_last_spin_${user?.id}`;
+  const themesKey = `orbit_themes_${user?.id}`;
+  const avatarsKey = `orbit_avatars_${user?.id}`;
+  const activeFrameKey = `orbit_active_frame_${user?.id}`;
+  const boosterKey = `orbit_booster_${user?.id}`;
+  const proKey = `orbit_is_pro_${user?.id}`;
+  const settingsKey = `orbit_settings_${user?.id}`;
 
-  // State
   const [goals, setGoals] = useState<Goal[]>(() => {
     const saved = localStorage.getItem(goalsKey);
     return saved ? JSON.parse(saved) : [];
@@ -35,149 +50,129 @@ const Dashboard: React.FC = () => {
     return saved ? JSON.parse(saved) : {};
   });
 
+  const [bonusPoints, setBonusPoints] = useState<number>(() => { const saved = localStorage.getItem(bonusKey); return saved ? parseInt(saved, 10) : 0; });
+  const [coins, setCoins] = useState<number>(() => { const saved = localStorage.getItem(coinsKey); return saved ? parseInt(saved, 10) : 0; });
+  const [unlockedThemes, setUnlockedThemes] = useState<string[]>(() => { const saved = localStorage.getItem(themesKey); return saved ? JSON.parse(saved) : []; });
+  const [unlockedAvatars, setUnlockedAvatars] = useState<string[]>(() => { const saved = localStorage.getItem(avatarsKey); return saved ? JSON.parse(saved) : []; });
+  const [activeAvatarFrame, setActiveAvatarFrame] = useState<string>(() => { const saved = localStorage.getItem(activeFrameKey); return saved || ''; });
+  const [activeBoosterExpiry, setActiveBoosterExpiry] = useState<number>(() => { const saved = localStorage.getItem(boosterKey); return saved ? parseInt(saved, 10) : 0; });
+  const [isPro, setIsPro] = useState<boolean>(() => { const saved = localStorage.getItem(proKey); return saved === 'true'; });
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(() => { const saved = localStorage.getItem(settingsKey); return saved ? JSON.parse(saved) : { pushEnabled: false, emailEnabled: false, smartReminders: true, reminderTime: "09:00" }; });
+
   const [currentDate, setCurrentDate] = useState(new Date());
   
-  // UI State
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
+  const [isShopOpen, setIsShopOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'achievements' | 'profile'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'achievements' | 'profile' | 'analytics'>('overview');
   const [mascotMood, setMascotMood] = useState<MascotMood>(null);
-  
-  // Profile Form State
+  const [showSpinWheel, setShowSpinWheel] = useState(false);
+  const [feedEvents, setFeedEvents] = useState<{ id: string; user: string; action: string; type: any; timestamp: number }[]>([]);
+
+  // Profile Inputs
   const [profileName, setProfileName] = useState('');
   const [profilePhone, setProfilePhone] = useState('');
   const [profileBio, setProfileBio] = useState('');
-  const [profilePhoto, setProfilePhoto] = useState(''); // Stores Base64 or URL
-  
+  const [profileCountry, setProfileCountry] = useState('');
+  const [profilePhoto, setProfilePhoto] = useState('');
   const [isProfileUpdating, setIsProfileUpdating] = useState(false);
-  const [profileMessage, setProfileMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // New Goal Form State
+  // New Goal Inputs
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [newGoalIcon, setNewGoalIcon] = useState(ICONS[0]);
   const [newGoalColor, setNewGoalColor] = useState(COLORS[0]);
   const [newGoalTime, setNewGoalTime] = useState('');
   const [newGoalReminder, setNewGoalReminder] = useState(false);
 
-  // Notification State
   const lastNotifiedRef = useRef<Set<string>>(new Set());
-
-  // Calculate Stats for Gamification (Memoized)
-  const userStats = useMemo(() => calculateStats(goals, logs), [goals, logs]);
+  const userStats = useMemo(() => calculateStats(goals, logs, bonusPoints), [goals, logs, bonusPoints]);
 
   const todayDate = new Date();
   const tYear = todayDate.getFullYear();
   const tMonth = String(todayDate.getMonth() + 1).padStart(2, '0');
   const tDay = String(todayDate.getDate()).padStart(2, '0');
   const todayStr = `${tYear}-${tMonth}-${tDay}`;
+  const isBoosterActive = activeBoosterExpiry > Date.now();
+  const extendedUser = user ? { ...user, isPro, coins } : null;
 
-  // Persistence
-  useEffect(() => {
-    if (user?.id) localStorage.setItem(goalsKey, JSON.stringify(goals));
-  }, [goals, user?.id, goalsKey]);
+  // Persistence Effects
+  useEffect(() => { if (user?.id) localStorage.setItem(goalsKey, JSON.stringify(goals)); }, [goals, user?.id, goalsKey]);
+  useEffect(() => { if (user?.id) localStorage.setItem(logsKey, JSON.stringify(logs)); }, [logs, user?.id, logsKey]);
+  useEffect(() => { if (user?.id) localStorage.setItem(bonusKey, bonusPoints.toString()); }, [bonusPoints, user?.id, bonusKey]);
+  useEffect(() => { if (user?.id) localStorage.setItem(coinsKey, coins.toString()); }, [coins, user?.id, coinsKey]);
+  useEffect(() => { if (user?.id) localStorage.setItem(themesKey, JSON.stringify(unlockedThemes)); }, [unlockedThemes, user?.id, themesKey]);
+  useEffect(() => { if (user?.id) localStorage.setItem(avatarsKey, JSON.stringify(unlockedAvatars)); }, [unlockedAvatars, user?.id, avatarsKey]);
+  useEffect(() => { if (user?.id) localStorage.setItem(activeFrameKey, activeAvatarFrame); }, [activeAvatarFrame, user?.id, activeFrameKey]);
+  useEffect(() => { if (user?.id) localStorage.setItem(boosterKey, activeBoosterExpiry.toString()); }, [activeBoosterExpiry, user?.id, boosterKey]);
+  useEffect(() => { if (user?.id) localStorage.setItem(proKey, String(isPro)); }, [isPro, user?.id, proKey]);
+  useEffect(() => { if (user?.id) localStorage.setItem(settingsKey, JSON.stringify(notificationSettings)); }, [notificationSettings, user?.id, settingsKey]);
 
-  useEffect(() => {
-    if (user?.id) localStorage.setItem(logsKey, JSON.stringify(logs));
-  }, [logs, user?.id, logsKey]);
-
-  // Load Data
   useEffect(() => {
     if (user?.id) {
-       const savedGoals = localStorage.getItem(goalsKey);
-       if (savedGoals) setGoals(JSON.parse(savedGoals));
-       else setGoals([]);
-
-       const savedLogs = localStorage.getItem(logsKey);
-       if (savedLogs) setLogs(JSON.parse(savedLogs));
-       else setLogs({});
-       
-       // Init profile inputs from AuthContext
+       // Init from user object
        setProfileName(user.name);
        setProfilePhoto(user.photoURL || '');
        setProfilePhone(user.phoneNumber || '');
        setProfileBio(user.bio || '');
-    }
-  }, [user?.id, goalsKey, logsKey, user]);
+       setProfileCountry(user.country || '');
 
-  // Notifications
+       if (!isPro) {
+           checkProStatus(user.id).then(serverPro => {
+               if (serverPro) {
+                   setIsPro(true);
+                   showToast("PRO subscription activated!", 'success');
+                   audioService.playLevelUp();
+               }
+           });
+       }
+    }
+  }, [user]);
+
+  // Spin Wheel Check
   useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-  }, []);
-
-  useEffect(() => {
-    const checkReminders = () => {
-      if (!('Notification' in window) || Notification.permission !== 'granted') return;
-      const now = new Date();
-      const hours = String(now.getHours()).padStart(2, '0');
-      const minutes = String(now.getMinutes()).padStart(2, '0');
-      const currentTimeStr = `${hours}:${minutes}`;
-      const y = now.getFullYear();
-      const m = String(now.getMonth() + 1).padStart(2, '0');
-      const d = String(now.getDate()).padStart(2, '0');
-      const currentDayStr = `${y}-${m}-${d}`;
-
-      goals.forEach(goal => {
-        if (goal.reminderEnabled && goal.time === currentTimeStr) {
-          const notificationKey = `${currentDayStr}-${goal.id}-${currentTimeStr}`;
-          const status = logs[currentDayStr]?.[goal.id];
-          const isDone = status === 'completed' || status === 'skipped';
-          if (!isDone && !lastNotifiedRef.current.has(notificationKey)) {
-            try {
-                new Notification(`Time for: ${goal.title}`, {
-                    body: `It's ${currentTimeStr}. Time to track your habit!`,
-                    icon: '/vite.svg',
-                    tag: notificationKey,
-                });
-            } catch (e) { console.error(e); }
-            lastNotifiedRef.current.add(notificationKey);
-          }
+    if (!user?.id || goals.length === 0) return;
+    const todaysLogs = logs[todayStr] || {};
+    const completedCount = goals.filter(g => todaysLogs[g.id] === 'completed').length;
+    
+    if (completedCount === goals.length && goals.length > 0) {
+        if (!logs[todayStr]?.['_feed_posted']) {
+            setFeedEvents(prev => [...prev, {
+                id: `completion-${Date.now()}`,
+                user: user.name || 'You',
+                action: 'completed all habits today! 🎉',
+                type: 'completion',
+                timestamp: Date.now()
+            }]);
         }
-      });
-    };
-    const intervalId = setInterval(checkReminders, 5000);
-    return () => clearInterval(intervalId);
-  }, [goals, logs]);
-
-  // Handlers
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (typeof reader.result === 'string') {
-          setProfilePhoto(reader.result); // Set base64 string
+        const lastSpin = localStorage.getItem(lastSpinKey);
+        if (lastSpin !== todayStr) {
+            const timer = setTimeout(() => setShowSpinWheel(true), 1000);
+            return () => clearTimeout(timer);
         }
-      };
-      reader.readAsDataURL(file);
     }
-  };
+  }, [logs, goals, user?.id, todayStr, lastSpinKey]);
 
+  // Actions
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsProfileUpdating(true);
-    setProfileMessage(null);
-    
     try {
       await updateUserProfile({
         name: profileName,
         photoURL: profilePhoto,
         phoneNumber: profilePhone,
-        bio: profileBio
+        bio: profileBio,
+        country: profileCountry,
+        activeAvatarFrame: activeAvatarFrame,
+        notificationSettings: notificationSettings
       });
-      setProfileMessage({ type: 'success', text: 'Profile updated successfully!' });
-      // Reset message after 3 seconds
-      setTimeout(() => setProfileMessage(null), 3000);
+      if (user) {
+        updateLeaderboardScore({...user, name: profileName, photoURL: profilePhoto, country: profileCountry, activeAvatarFrame}, 0, 0);
+      }
+      showToast('Profile updated successfully', 'success');
     } catch (error) {
-      console.error("Profile update failed", error);
-      setProfileMessage({ type: 'error', text: 'Failed to update profile. Please try again.' });
+      showToast('Failed to update profile', 'error');
     } finally {
       setIsProfileUpdating(false);
     }
@@ -185,9 +180,6 @@ const Dashboard: React.FC = () => {
 
   const addGoal = async () => {
     if (!newGoalTitle.trim()) return;
-    if (newGoalReminder && 'Notification' in window && Notification.permission === 'default') {
-        await Notification.requestPermission();
-    }
     const newGoal: Goal = {
       id: crypto.randomUUID(),
       title: newGoalTitle,
@@ -202,61 +194,47 @@ const Dashboard: React.FC = () => {
     setNewGoalTime('');
     setNewGoalReminder(false);
     setIsGoalModalOpen(false);
+    showToast('New goal created', 'success');
   };
 
   const removeGoal = (id: string) => {
-    if (window.confirm("Are you sure you want to delete this goal?")) {
+    if (window.confirm("Delete this goal? Data will be preserved.")) {
       setGoals(goals.filter(g => g.id !== id));
+      showToast('Goal removed', 'info');
     }
   };
 
   const toggleLog = async (date: string, goalId: string, status: CompletionStatus) => {
     const previousStatus = logs[date]?.[goalId] || 'pending';
-    
-    // Update Local State
     setLogs(prev => ({
       ...prev,
       [date]: { ...(prev[date] || {}), [goalId]: status }
     }));
 
-    // Update Global Leaderboard if Today's action
     if (user && date === todayStr) {
       let pointsDelta = 0;
       let tasksDelta = 0;
+      let coinsDelta = 0;
+      const multiplier = isBoosterActive ? 2 : 1;
 
-      // Logic for Points Calculation
       if (status === 'completed' && previousStatus !== 'completed') {
-        pointsDelta = POINTS_PER_COMPLETION;
+        pointsDelta = POINTS_PER_COMPLETION * multiplier;
         tasksDelta = 1;
+        coinsDelta = 1 * multiplier; 
       } else if (status !== 'completed' && previousStatus === 'completed') {
-        // User undid a completion
-        pointsDelta = -POINTS_PER_COMPLETION;
+        pointsDelta = -(POINTS_PER_COMPLETION * multiplier);
         tasksDelta = -1;
+        coinsDelta = -(1 * multiplier);
       }
-
-      if (pointsDelta !== 0) {
-        await updateLeaderboardScore(user, pointsDelta, tasksDelta);
-      }
+      setCoins(prev => Math.max(0, prev + coinsDelta));
+      if (pointsDelta !== 0) await updateLeaderboardScore(user, pointsDelta, tasksDelta);
     }
-  };
-
-  const handleTodayToggle = (goalId: string, status: CompletionStatus) => {
-    toggleLog(todayStr, goalId, status);
   };
 
   const handleModalAction = (e: React.MouseEvent, date: string, goalId: string, newStatus: CompletionStatus) => {
     if (newStatus === 'completed') {
         audioService.playSuccess();
         setMascotMood('success');
-    } else if (newStatus === 'skipped') {
-        audioService.playSkip();
-        setMascotMood('skip');
-    } else if (newStatus === 'pending') {
-        audioService.playUndo();
-        setMascotMood('undo');
-    }
-
-    if (newStatus === 'completed') {
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
         const xRatio = (rect.left + rect.width / 2) / window.innerWidth;
         const yRatio = (rect.top + rect.height / 2) / window.innerHeight;
@@ -265,91 +243,122 @@ const Dashboard: React.FC = () => {
             colors: ['#6366f1', '#10b981', '#f59e0b', '#ec4899'],
             zIndex: 9999, disableForReducedMotion: true
         });
+    } else if (newStatus === 'skipped') {
+        audioService.playSkip();
+        setMascotMood('skip');
+    } else {
+        audioService.playUndo();
+        setMascotMood('undo');
     }
     toggleLog(date, goalId, newStatus);
   };
 
-  const handleTemplateSelect = (template: { title: string, icon: string, color: string }) => {
-    setNewGoalTitle(template.title);
-    setNewGoalIcon(template.icon);
-    setNewGoalColor(template.color);
+  const handleSpinComplete = (points: number) => {
+     const multiplier = isBoosterActive ? 2 : 1;
+     const finalPoints = points * multiplier;
+     audioService.playLevelUp();
+     setBonusPoints(prev => prev + finalPoints);
+     setCoins(prev => prev + Math.floor(finalPoints / 2));
+     if (user) updateLeaderboardScore(user, finalPoints, 0);
+     localStorage.setItem(lastSpinKey, todayStr);
+     setTimeout(() => setShowSpinWheel(false), 2000);
   };
 
-  const selectedDateObject = selectedDay 
-    ? new Date(parseInt(selectedDay.split('-')[0]), parseInt(selectedDay.split('-')[1]) - 1, parseInt(selectedDay.split('-')[2])) 
-    : null;
-  const formattedSelectedDate = selectedDateObject?.toLocaleDateString('default', { 
-    weekday: 'long', month: 'long', day: 'numeric' 
-  });
-  const isSelectedDayEditable = selectedDay === todayStr;
-  const isFutureDate = selectedDay ? selectedDay > todayStr : false;
+  const handleShopPurchase = (item: ShopItem) => {
+      if (item.type === 'premium') return;
+      setCoins(prev => prev - item.cost);
+      if (item.type === 'theme' && item.value) setUnlockedThemes(prev => [...prev, item.id]);
+      else if (item.type === 'avatar' && item.value) {
+          setUnlockedAvatars(prev => [...prev, item.id]);
+          setActiveAvatarFrame(item.value);
+      } else if (item.type === 'booster') setActiveBoosterExpiry(Date.now() + 24 * 60 * 60 * 1000);
+      else if (item.type === 'coupon' && item.value === 'PRO-FREE-1M') setIsPro(true);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const reader = new FileReader();
+      reader.onloadend = () => { if (typeof reader.result === 'string') setProfilePhoto(reader.result); };
+      reader.readAsDataURL(e.target.files[0]);
+    }
+  };
 
   return (
-    <div className="min-h-screen pb-20 bg-slate-950 font-sans text-slate-100 selection:bg-indigo-500/30">
-      
+    <div className="min-h-screen pb-24 bg-slate-950 font-sans text-slate-100 selection:bg-indigo-500/30">
       <Mascot mood={mascotMood} onComplete={() => setMascotMood(null)} />
+      <AnimatePresence>
+        {isShopOpen && (
+            <RewardsShop coins={coins} unlockedThemes={unlockedThemes} unlockedAvatars={unlockedAvatars} activeBoosterExpiry={activeBoosterExpiry} onPurchase={handleShopPurchase} onClose={() => setIsShopOpen(false)} />
+        )}
+        {showSpinWheel && <SpinWheel onComplete={handleSpinComplete} onClose={() => setShowSpinWheel(false)} />}
+      </AnimatePresence>
 
       {/* Navbar */}
       <nav className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-30">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2 cursor-pointer group flex-shrink-0" onClick={() => navigate('/')}>
-            <div className="bg-indigo-600 p-1.5 sm:p-2 rounded-lg group-hover:scale-105 transition-transform">
+            <div className="bg-indigo-600 p-1.5 rounded-lg group-hover:scale-110 transition-transform">
               <Target size={20} className="text-white" />
             </div>
-            <h1 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent hidden xs:block">OrbitGoals</h1>
+            <h1 className="text-lg font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent hidden xs:block">OrbitGoals</h1>
           </div>
           
-          <div className="flex gap-2 sm:gap-4 items-center">
-             <div 
-               className="hidden md:flex flex-col items-end mr-2 cursor-pointer hover:opacity-80 transition"
-               onClick={() => setActiveTab('profile')}
-             >
-                <span className="text-sm text-white font-medium">{profileName || user?.name}</span>
+          <div className="flex gap-2 sm:gap-4 items-center flex-1 justify-end min-w-0">
+             <div className="hidden md:flex flex-col items-end mr-2 cursor-pointer hover:opacity-80 transition" onClick={() => setActiveTab('profile')}>
+                <div className="flex items-center gap-2">
+                    <span className="text-sm text-white font-medium truncate max-w-[100px]">{profileName || user?.name}</span>
+                    {activeAvatarFrame && <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div>}
+                </div>
                 <span className="text-xs text-amber-500 font-bold">Lvl {userStats.level}</span>
              </div>
              
-             {/* Mobile-friendly action bar */}
-             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar mask-gradient-right pb-1 sm:pb-0">
-                <button 
-                  onClick={() => navigate('/leaderboard')}
-                  className="p-2 rounded-lg bg-slate-800 text-amber-400 hover:text-amber-300 hover:bg-slate-700 transition flex-shrink-0"
-                  title="Global Leaderboard"
-                >
-                  <Trophy size={18} />
+             {/* Mobile Scrollable Action Bar */}
+             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar mask-gradient-right pb-1 sm:pb-0 max-w-full">
+                <button onClick={() => setIsShopOpen(true)} className="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition flex-shrink-0 flex items-center gap-1 font-bold relative overflow-hidden" title="Rewards">
+                  <ShoppingBag size={18} /> <span className="text-xs hidden sm:inline">{coins}</span>
+                  {isBoosterActive && <div className="absolute inset-0 bg-orange-500/10 animate-pulse pointer-events-none"></div>}
                 </button>
-
-                <button onClick={() => setActiveTab(activeTab === 'achievements' ? 'overview' : 'achievements')} className={`p-2 rounded-lg transition flex-shrink-0 ${activeTab === 'achievements' ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-800 text-slate-300 hover:text-white'}`}>
-                  <Award size={18} />
-                </button>
-                <button onClick={() => setActiveTab('profile')} className={`p-2 rounded-lg transition flex-shrink-0 ${activeTab === 'profile' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-800 text-slate-300 hover:text-white'}`}>
-                  <UserIcon size={18} />
-                </button>
-                <button onClick={() => setIsGoalModalOpen(true)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg transition flex-shrink-0">
-                  <Settings size={18} />
-                </button>
-                <button onClick={() => setIsGoalModalOpen(true)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 sm:px-4 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-lg shadow-indigo-900/20 flex-shrink-0 whitespace-nowrap">
-                  <Plus size={16} /> <span className="hidden sm:inline">New Goal</span>
-                </button>
-                <button onClick={handleLogout} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition flex-shrink-0">
-                    <LogOut size={18} />
-                </button>
+                <button onClick={() => navigate('/leaderboard')} className="p-2 rounded-lg bg-slate-800 text-indigo-400 hover:text-white hover:bg-slate-700 transition flex-shrink-0"><Trophy size={18} /></button>
+                <button onClick={() => setActiveTab(activeTab === 'analytics' ? 'overview' : 'analytics')} className={`p-2 rounded-lg transition flex-shrink-0 ${activeTab === 'analytics' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-800 text-slate-300 hover:text-white'}`}><BarChart2 size={18} /></button>
+                <button onClick={() => setActiveTab(activeTab === 'achievements' ? 'overview' : 'achievements')} className={`p-2 rounded-lg transition flex-shrink-0 ${activeTab === 'achievements' ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-800 text-slate-300 hover:text-white'}`}><Award size={18} /></button>
+                <button onClick={() => setActiveTab('profile')} className={`p-2 rounded-lg transition flex-shrink-0 ${activeTab === 'profile' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-800 text-slate-300 hover:text-white'}`}><UserIcon size={18} /></button>
+                <button onClick={() => setIsGoalModalOpen(true)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-lg flex-shrink-0"><Plus size={16} /> <span className="hidden sm:inline">Add</span></button>
              </div>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8 animate-fade-in">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-8 animate-fade-in">
+        {isBoosterActive && (
+             <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-6 p-3 bg-orange-500/10 border border-orange-500/20 rounded-xl flex items-center justify-center gap-2 text-orange-400 text-xs sm:text-sm font-bold shadow-[0_0_15px_rgba(249,115,22,0.1)]">
+                <Flame size={16} className="animate-bounce" /> Double XP Active! Ends: {new Date(activeBoosterExpiry).toLocaleTimeString()}
+             </motion.div>
+        )}
+
         {activeTab === 'overview' && (
           <>
-            <TodayFocus goals={goals} logs={logs} onToggle={handleTodayToggle} />
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 sm:gap-8 mb-6 sm:mb-8">
+               <div className="lg:col-span-3">
+                  <MotivationBanner userName={user?.name} userStreak={userStats.currentStreak} />
+                  <TodayFocus goals={goals} logs={logs} onToggle={(gid, status) => toggleLog(todayStr, gid, status)} />
+               </div>
+               <div className="lg:col-span-1">
+                  <ProgressFeed newEvents={feedEvents} />
+                  <div className="mt-6 hidden lg:block"><AchievementsWidget stats={userStats} /></div>
+               </div>
+            </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 mb-6 sm:mb-8">
-               <div className="lg:col-span-3"><AICoach goals={goals} logs={logs} currentDate={currentDate} /></div>
+               <div className="lg:col-span-3">
+                  <AICoach userBio={user?.bio} goals={goals} logs={logs} currentDate={currentDate} onAddGoal={(g) => { setGoals(p => [...p, {id: crypto.randomUUID(), title: g.title!, icon: g.icon!, color: g.color!, createdAt: new Date().toISOString(), time: g.time, reminderEnabled: !!g.time}]); showToast('Added from AI Coach', 'success'); }} />
+               </div>
             </div>
             <Stats goals={goals} logs={logs} currentDate={currentDate} />
             <Calendar currentDate={currentDate} onDateChange={setCurrentDate} logs={logs} goals={goals} onDayClick={setSelectedDay} />
           </>
         )}
         
+        {activeTab === 'analytics' && <AnalyticsView user={extendedUser} goals={goals} logs={logs} currentDate={currentDate} onOpenShop={() => setIsShopOpen(true)} />}
+
         {activeTab === 'achievements' && (
           <div className="max-w-3xl mx-auto space-y-6 sm:space-y-8 animate-fade-in">
              <div className="flex items-center gap-4 mb-4 sm:mb-6">
@@ -360,127 +369,50 @@ const Dashboard: React.FC = () => {
           </div>
         )}
 
+        {/* Profile Tab */}
         {activeTab === 'profile' && (
           <div className="max-w-2xl mx-auto animate-fade-in pb-12">
              <div className="flex items-center gap-4 mb-6 sm:mb-8">
                 <button onClick={() => setActiveTab('overview')} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 transition"><X size={24} /></button>
-                <h2 className="text-2xl sm:text-3xl font-bold text-white">Commander Profile</h2>
+                <h2 className="text-2xl sm:text-3xl font-bold text-white">Profile</h2>
              </div>
-
              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-8 shadow-2xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-br from-indigo-600/10 to-transparent rounded-full blur-[80px] pointer-events-none -mr-20 -mt-20"></div>
-
-                <form onSubmit={handleUpdateProfile} className="relative z-10 flex flex-col gap-6 sm:gap-8">
-                   
-                   {/* Avatar Upload Section */}
+                <form onSubmit={handleUpdateProfile} className="relative z-10 flex flex-col gap-6">
                    <div className="flex flex-col items-center">
-                      <div className="relative group">
-                        <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full ring-4 ring-slate-800 overflow-hidden bg-slate-800 shadow-xl cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                           {profilePhoto ? (
-                              <img src={profilePhoto} alt="Profile" className="w-full h-full object-cover group-hover:opacity-70 transition-opacity" />
-                           ) : (
-                              <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-500 group-hover:bg-slate-700 transition">
-                                 <UserIcon size={40} className="sm:w-12 sm:h-12" />
-                              </div>
-                           )}
-                           
-                           {/* Overlay Icon */}
-                           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
-                              <Camera size={24} className="text-white drop-shadow-md" />
+                      <div className={`w-24 h-24 sm:w-32 sm:h-32 rounded-full p-1 ${activeAvatarFrame}`}>
+                          <div className="w-full h-full rounded-full ring-4 ring-slate-800 overflow-hidden bg-slate-800 shadow-xl cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                            {profilePhoto ? <img src={profilePhoto} alt="Profile" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-500"><UserIcon size={40} /></div>}
+                          </div>
+                      </div>
+                      <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+                      <p className="mt-3 text-sm text-slate-500">Tap to upload</p>
+                   </div>
+
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div><label className="block text-xs font-bold text-slate-500 uppercase mb-2">Name</label><input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} className="w-full bg-slate-950/50 border border-slate-700 text-white rounded-xl p-3" /></div>
+                      <div><label className="block text-xs font-bold text-slate-500 uppercase mb-2">Phone</label><input type="tel" value={profilePhone} onChange={(e) => setProfilePhone(e.target.value)} className="w-full bg-slate-950/50 border border-slate-700 text-white rounded-xl p-3" /></div>
+                   </div>
+                   
+                   <div><label className="block text-xs font-bold text-slate-500 uppercase mb-2">Region</label><select value={profileCountry} onChange={(e) => setProfileCountry(e.target.value)} className="w-full bg-slate-950/50 border border-slate-700 text-white rounded-xl p-3"><option value="">Select...</option>{COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.name}</option>)}</select></div>
+                   <div><label className="block text-xs font-bold text-slate-500 uppercase mb-2">Bio</label><textarea value={profileBio} onChange={(e) => setProfileBio(e.target.value)} className="w-full bg-slate-950/50 border border-slate-700 text-white rounded-xl p-3 h-24" /></div>
+
+                   {/* Frame Selection */}
+                   {unlockedAvatars.length > 0 && (
+                       <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800">
+                           <label className="block text-xs font-bold text-slate-500 uppercase mb-3 text-center">Frames</label>
+                           <div className="flex flex-wrap justify-center gap-3">
+                                <button type="button" onClick={() => setActiveAvatarFrame('')} className={`w-10 h-10 rounded-full bg-slate-800 border-2 ${!activeAvatarFrame ? 'border-indigo-500' : 'border-slate-700'} text-xs text-slate-400`}>Off</button>
+                               {unlockedAvatars.map(id => {
+                                   const frameClass = id === 'frame_gold' ? 'ring-4 ring-amber-400' : id === 'frame_neon' ? 'ring-4 ring-cyan-500' : 'ring-4 ring-rose-500';
+                                   return <button key={id} type="button" onClick={() => setActiveAvatarFrame(frameClass)} className={`w-10 h-10 rounded-full bg-slate-800 ${frameClass} ${activeAvatarFrame === frameClass ? 'scale-110' : 'opacity-70'}`} />
+                               })}
                            </div>
-                        </div>
-                        <input 
-                           type="file" 
-                           ref={fileInputRef} 
-                           onChange={handleFileChange} 
-                           className="hidden" 
-                           accept="image/*"
-                        />
-                      </div>
-                      <p className="mt-3 text-sm text-slate-500">Tap to upload photo</p>
-                   </div>
-
-                   {/* Fields Container */}
-                   <div className="grid gap-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Display Name</label>
-                            <div className="relative">
-                               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"><Edit3 size={16} /></div>
-                               <input 
-                                 type="text" 
-                                 value={profileName}
-                                 onChange={(e) => setProfileName(e.target.value)}
-                                 className="w-full bg-slate-950/50 border border-slate-700 focus:border-indigo-500 text-white rounded-xl pl-10 p-3 outline-none transition"
-                                 placeholder="e.g. Captain Orbit"
-                               />
-                            </div>
-                         </div>
-                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Phone Number</label>
-                            <div className="relative">
-                               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"><Phone size={16} /></div>
-                               <input 
-                                 type="tel" 
-                                 value={profilePhone}
-                                 onChange={(e) => setProfilePhone(e.target.value)}
-                                 className="w-full bg-slate-950/50 border border-slate-700 focus:border-indigo-500 text-white rounded-xl pl-10 p-3 outline-none transition"
-                                 placeholder="+1 (555) 000-0000"
-                               />
-                            </div>
-                         </div>
-                      </div>
-
-                      <div>
-                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Stress-Free Details (Bio)</label>
-                         <textarea 
-                           value={profileBio}
-                           onChange={(e) => setProfileBio(e.target.value)}
-                           className="w-full bg-slate-950/50 border border-slate-700 focus:border-indigo-500 text-white rounded-xl p-4 outline-none transition h-24 resize-none leading-relaxed"
-                           placeholder="What drives your orbit? Keep it simple."
-                         />
-                      </div>
-                   </div>
-
-                   {/* Read-Only Info */}
-                   <div className="bg-slate-950/30 rounded-xl p-4 border border-slate-800/50 flex flex-col md:flex-row gap-4 justify-between items-center text-xs text-slate-500">
-                      <div className="flex items-center gap-2">
-                         <Mail size={14} />
-                         <span className="break-all">{user?.email}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                         <Shield size={14} />
-                         <span className="font-mono opacity-70">ID: {user?.id.slice(0, 8)}...</span>
-                      </div>
-                   </div>
-
-                   {profileMessage && (
-                      <motion.div 
-                        initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-                        className={`p-4 rounded-xl flex items-center gap-3 ${profileMessage.type === 'success' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}`}
-                      >
-                         {profileMessage.type === 'success' ? <Check size={18} /> : <X size={18} />}
-                         <span className="font-medium">{profileMessage.text}</span>
-                      </motion.div>
+                       </div>
                    )}
 
                    <div className="flex flex-col sm:flex-row gap-4 pt-2">
-                      <button 
-                        type="submit" 
-                        disabled={isProfileUpdating}
-                        className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 disabled:opacity-50"
-                      >
-                         {isProfileUpdating ? <Loader className="animate-spin" size={18} /> : <Save size={18} />}
-                         Save Profile
-                      </button>
-                      <button 
-                        type="button"
-                        onClick={handleLogout}
-                        className="px-8 py-3 bg-slate-800 hover:bg-rose-500/10 hover:text-rose-500 text-slate-300 rounded-xl font-bold transition border border-slate-700 hover:border-rose-500/30 flex items-center justify-center gap-2"
-                      >
-                         <LogOut size={18} />
-                         Logout
-                      </button>
+                      <button type="submit" disabled={isProfileUpdating} className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition flex items-center justify-center gap-2">{isProfileUpdating ? <Loader className="animate-spin" size={18} /> : <Save size={18} />} Save</button>
+                      <button type="button" onClick={() => { logout(); navigate('/'); }} className="px-8 py-3 bg-slate-800 hover:text-rose-500 text-slate-300 rounded-xl font-bold transition border border-slate-700 flex items-center justify-center gap-2"><LogOut size={18} /> Logout</button>
                    </div>
                 </form>
              </div>
@@ -488,95 +420,56 @@ const Dashboard: React.FC = () => {
         )}
       </main>
 
-      {/* Modals remain unchanged... */}
+      {/* Goal Modal */}
       <AnimatePresence>
-      {selectedDay && (
-        <motion.div 
-           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-        >
-          <motion.div 
-             initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
-             className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden"
-          >
-            <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-800/50">
-              <div>
-                <h3 className="text-xl font-bold text-white flex items-center gap-2">{formattedSelectedDate}</h3>
-                <div className="flex items-center gap-2 mt-1">
-                  {!isSelectedDayEditable && (
-                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-400 text-xs font-bold">
-                       {isFutureDate ? <Clock size={12} /> : <Lock size={12} />} <span>{isFutureDate ? 'Future Date' : 'Past Locked'}</span>
-                    </div>
-                  )}
-                  <p className="text-slate-400 text-sm">{isSelectedDayEditable ? 'Update your progress' : 'View only mode'}</p>
+      {isGoalModalOpen && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="p-6 overflow-y-auto flex-1">
+              <div className="flex justify-between items-center mb-6"><h3 className="text-xl font-bold text-white">New Goal</h3><button onClick={() => setIsGoalModalOpen(false)} className="text-slate-500 hover:text-white"><X size={20} /></button></div>
+              <HabitTemplates onSelect={(t) => { setNewGoalTitle(t.title); setNewGoalIcon(t.icon); setNewGoalColor(t.color); }} />
+              <div className="space-y-4 border-t border-slate-800 pt-4">
+                <input type="text" value={newGoalTitle} onChange={(e) => setNewGoalTitle(e.target.value)} placeholder="Goal Title" className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg p-3" />
+                <div className="flex gap-4">
+                  <input type="time" value={newGoalTime} onChange={(e) => setNewGoalTime(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg p-3" />
+                  <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-slate-800"><input type="checkbox" checked={newGoalReminder} onChange={(e) => setNewGoalReminder(e.target.checked)} className="w-5 h-5 rounded bg-slate-900" /><span className="text-sm font-medium text-slate-300"><Bell size={14} /></span></label>
                 </div>
+                <div className="flex gap-2 overflow-x-auto pb-2">{ICONS.map(i => <button key={i} onClick={() => setNewGoalIcon(i)} className={`w-10 h-10 flex-shrink-0 rounded-lg text-xl ${newGoalIcon === i ? 'bg-indigo-600' : 'bg-slate-800'}`}>{i}</button>)}</div>
+                <div className="flex gap-2 flex-wrap">{COLORS.map(c => <button key={c} onClick={() => setNewGoalColor(c)} className={`w-8 h-8 rounded-full ${c} ${newGoalColor === c ? 'ring-2 ring-white' : 'opacity-70'}`} />)}</div>
               </div>
-              <button onClick={() => setSelectedDay(null)} className="text-slate-400 hover:text-white transition"><X size={24} /></button>
+              <button onClick={addGoal} disabled={!newGoalTitle.trim()} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium mt-6">Create Goal</button>
             </div>
-            <div className="p-6 max-h-[60vh] overflow-y-auto space-y-4">
-              {goals.length === 0 ? <div className="text-center text-slate-500 py-8">No goals set for this month.</div> : (
-                goals.map(goal => {
-                  const status = logs[selectedDay]?.[goal.id] || 'pending';
-                  const isCompleted = status === 'completed';
-                  const isSkipped = status === 'skipped';
-                  return (
-                    <motion.div layout key={goal.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-800/40 border border-slate-700/50">
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl">{goal.icon}</span>
-                        <div className={!isSelectedDayEditable ? 'opacity-70' : ''}>
-                          <div className="flex items-center gap-2">
-                              <span className="font-medium text-slate-200 block">{goal.title}</span>
-                              {goal.time && <span className="text-xs text-indigo-400 flex items-center gap-0.5 bg-indigo-500/10 px-1.5 py-0.5 rounded"><Clock size={10} />{goal.time}</span>}
-                          </div>
-                          {!isSelectedDayEditable && status !== 'pending' && <span className="text-xs text-slate-500 capitalize">Recorded: {status}</span>}
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                         <motion.button whileTap={{ scale: 0.9 }} disabled={!isSelectedDayEditable} onClick={(e) => handleModalAction(e, selectedDay, goal.id, status === 'skipped' ? 'pending' : 'skipped')} className={`p-2 rounded-lg transition-all ${!isSelectedDayEditable ? 'opacity-30 cursor-not-allowed bg-slate-800 text-slate-600' : isSkipped ? 'bg-rose-500 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}><X size={16} /></motion.button>
-                        <motion.button whileTap={{ scale: 0.9 }} disabled={!isSelectedDayEditable} onClick={(e) => handleModalAction(e, selectedDay, goal.id, status === 'completed' ? 'pending' : 'completed')} className={`p-2 rounded-lg transition-all flex items-center gap-2 ${!isSelectedDayEditable ? `opacity-30 cursor-not-allowed ${isCompleted ? goal.color + ' text-white' : 'bg-slate-800 text-slate-600'}` : isCompleted ? `${goal.color} text-white shadow-lg` : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}><Check size={16} /></motion.button>
-                      </div>
-                    </motion.div>
-                  );
-                })
-              )}
-            </div>
-            <div className="p-4 bg-slate-800/30 text-center"><button onClick={() => setSelectedDay(null)} className="text-indigo-400 hover:text-indigo-300 text-sm font-medium">Close</button></div>
           </motion.div>
         </motion.div>
       )}
       </AnimatePresence>
 
+      {/* Date Modal */}
       <AnimatePresence>
-      {isGoalModalOpen && (
+      {selectedDay && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-            <div className="p-6 overflow-y-auto flex-1">
-              <div className="flex justify-between items-center mb-6"><h3 className="text-xl font-bold text-white">Manage Goals</h3><button onClick={() => setIsGoalModalOpen(false)} className="text-slate-500 hover:text-white"><X size={20} /></button></div>
-              <HabitTemplates onSelect={handleTemplateSelect} />
-              <div className="space-y-4 border-t border-slate-800 pt-4">
-                <div><label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Goal Title</label><input type="text" value={newGoalTitle} onChange={(e) => setNewGoalTitle(e.target.value)} placeholder="e.g., Read 30 mins" className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 outline-none" autoFocus /></div>
-                <div className="flex gap-4">
-                  <div className="flex-1"><label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Time</label><input type="time" value={newGoalTime} onChange={(e) => setNewGoalTime(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 outline-none" /></div>
-                  <div className="flex items-center pt-6"><label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-slate-800 transition"><input type="checkbox" checked={newGoalReminder} onChange={(e) => setNewGoalReminder(e.target.checked)} className="w-5 h-5 rounded border-slate-700 text-indigo-600 bg-slate-900" /><span className="text-sm font-medium text-slate-300 flex items-center gap-2"><Bell size={14} className={newGoalReminder ? 'text-amber-400' : 'text-slate-500'} /> Notify</span></label></div>
-                </div>
-                <div><label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Icon</label><div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">{ICONS.map(icon => (<button key={icon} onClick={() => setNewGoalIcon(icon)} className={`w-10 h-10 flex-shrink-0 rounded-lg flex items-center justify-center text-xl transition-all ${newGoalIcon === icon ? 'bg-indigo-600 text-white scale-110' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>{icon}</button>))}</div></div>
-                <div><label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Color</label><div className="flex gap-2 flex-wrap">{COLORS.map(color => (<button key={color} onClick={() => setNewGoalColor(color)} className={`w-8 h-8 rounded-full transition-all ring-2 ring-offset-2 ring-offset-slate-900 ${color} ${newGoalColor === color ? 'ring-white scale-110' : 'ring-transparent opacity-70 hover:opacity-100'}`} />))}</div></div>
-              </div>
-              <div className="mt-8 flex gap-3"><button onClick={addGoal} disabled={!newGoalTitle.trim()} className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium transition disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/20">Add New Goal</button></div>
+          <motion.div initial={{ y: 20 }} animate={{ y: 0 }} exit={{ y: 20 }} className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 p-6 shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-white">{new Date(selectedDay).toLocaleDateString()}</h3>
+                <button onClick={() => setSelectedDay(null)}><X size={24} className="text-slate-400" /></button>
             </div>
-            {goals.length > 0 && (
-              <div className="border-t border-slate-800 p-6 bg-slate-950/30 flex-shrink-0">
-                <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Your Goals</h4>
-                <div className="space-y-2 max-h-32 overflow-y-auto pr-2">
-                  {goals.map(g => (
-                     <div key={g.id} className="flex justify-between items-center text-sm p-3 rounded-xl bg-slate-800/50 hover:bg-slate-800 transition-colors border border-transparent hover:border-slate-700">
-                        <div className="flex items-center gap-3"><span className="text-lg">{g.icon}</span><div><span className="text-slate-200 font-medium block">{g.title}</span><div className="flex gap-2"><span className="text-slate-500 text-xs">Created {new Date(g.createdAt).toLocaleDateString()}</span>{g.time && (<span className="text-indigo-400 text-xs flex items-center gap-1"><Clock size={10} />{g.time}</span>)}</div></div></div>
-                        <button onClick={() => removeGoal(g.id)} className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition"><X size={16} /></button>
-                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+                {goals.map(g => {
+                    const status = logs[selectedDay]?.[g.id] || 'pending';
+                    return (
+                        <div key={g.id} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-xl">
+                            <div className="flex items-center gap-3">
+                                <span className="text-xl">{g.icon}</span>
+                                <div><div className="text-sm font-bold text-white">{g.title}</div><div className="text-xs text-slate-500 capitalize">{status}</div></div>
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={(e) => handleModalAction(e, selectedDay, g.id, 'skipped')} className={`p-2 rounded-lg ${status === 'skipped' ? 'bg-rose-500 text-white' : 'bg-slate-700 text-slate-400'}`}><X size={16}/></button>
+                                <button onClick={(e) => handleModalAction(e, selectedDay, g.id, 'completed')} className={`p-2 rounded-lg ${status === 'completed' ? g.color + ' text-white' : 'bg-slate-700 text-slate-400'}`}><Check size={16}/></button>
+                            </div>
+                        </div>
+                    )
+                })}
+            </div>
           </motion.div>
         </motion.div>
       )}

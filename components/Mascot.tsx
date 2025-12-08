@@ -89,11 +89,12 @@ const Mascot: React.FC<MascotProps> = ({ mood, onComplete }) => {
 
                   {/* Antenna */}
                   <line x1="100" y1="80" x2="100" y2="60" stroke={mood === 'skip' ? '#64748b' : '#6366f1'} strokeWidth="4" />
-                  <circle cx="100" cy="55" r="8" fill={mood === 'success' ? '#f43f5e' : '#cbd5e1'}>
-                      {mood === 'success' && (
-                         <motion.animate attributeName="opacity" values="1;0.5;1" dur="0.5s" repeatCount="indefinite" />
-                      )}
-                  </circle>
+                  <motion.circle 
+                    cx="100" cy="55" r="8" 
+                    fill={mood === 'success' ? '#f43f5e' : '#cbd5e1'}
+                    animate={mood === 'success' ? { opacity: [1, 0.5, 1] } : { opacity: 1 }}
+                    transition={mood === 'success' ? { duration: 0.5, repeat: Infinity } : {}}
+                  />
 
                   {/* Arms */}
                   <motion.path 
