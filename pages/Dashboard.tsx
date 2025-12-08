@@ -288,7 +288,15 @@ const Dashboard: React.FC = () => {
       <Mascot mood={mascotMood} onComplete={() => setMascotMood(null)} />
       <AnimatePresence>
         {isShopOpen && (
-            <RewardsShop coins={coins} unlockedThemes={unlockedThemes} unlockedAvatars={unlockedAvatars} activeBoosterExpiry={activeBoosterExpiry} onPurchase={handleShopPurchase} onClose={() => setIsShopOpen(false)} />
+            <RewardsShop 
+                coins={coins} 
+                unlockedThemes={unlockedThemes} 
+                unlockedAvatars={unlockedAvatars} 
+                activeBoosterExpiry={activeBoosterExpiry} 
+                isPro={isPro}
+                onPurchase={handleShopPurchase} 
+                onClose={() => setIsShopOpen(false)} 
+            />
         )}
         {showSpinWheel && <SpinWheel onComplete={handleSpinComplete} onClose={() => setShowSpinWheel(false)} />}
       </AnimatePresence>

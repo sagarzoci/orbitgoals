@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShopItem } from '../types';
-import { ShoppingBag, Check, Zap, Palette, Ticket, Shield, Crown, Flame, Smartphone, Loader, Clock, X } from 'lucide-react';
+import { ShoppingBag, Check, Zap, Palette, Ticket, Shield, Crown, Flame, Smartphone, Loader, Clock, X, SmartphoneNfc } from 'lucide-react';
 import { audioService } from '../services/audioService';
 import { submitPaymentRequest } from '../services/paymentService';
 import { useAuth } from '../context/AuthContext';
@@ -12,6 +12,7 @@ interface RewardsShopProps {
   unlockedThemes: string[];
   unlockedAvatars: string[];
   activeBoosterExpiry?: number;
+  isPro: boolean;
   onPurchase: (item: ShopItem) => void;
   onClose: () => void;
 }
@@ -29,7 +30,7 @@ const SHOP_ITEMS: ShopItem[] = [
   { id: 'badge_supporter', type: 'badge', title: 'Early Supporter', description: 'Show you were here first.', cost: 1000, icon: <Shield className="text-indigo-400" /> },
 ];
 
-const RewardsShop: React.FC<RewardsShopProps> = ({ coins, unlockedThemes, unlockedAvatars, activeBoosterExpiry, onPurchase, onClose }) => {
+const RewardsShop: React.FC<RewardsShopProps> = ({ coins, unlockedThemes, unlockedAvatars, activeBoosterExpiry, isPro, onPurchase, onClose }) => {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [filter, setFilter] = useState<'all' | 'premium' | 'theme' | 'coupon' | 'badge' | 'avatar' | 'booster'>('all');
@@ -45,6 +46,10 @@ const RewardsShop: React.FC<RewardsShopProps> = ({ coins, unlockedThemes, unlock
     if (item.type === 'booster' && isBoosterActive) return;
 
     if (item.type === 'premium') {
+      if (isPro) {
+          showToast("You are already a Premium member!", "success");
+          return;
+      }
       setPaymentItem(item);
       setPaymentStep('scan');
       return;
@@ -69,9 +74,17 @@ const RewardsShop: React.FC<RewardsShopProps> = ({ coins, unlockedThemes, unlock
                 setPaymentStep('pending_admin');
                 showToast('Request sent to admin', 'success');
             }, 1500);
-        } catch (e) {
-            setPaymentStep('scan'); 
-            showToast('Submission failed. Try again.', 'error');
+        } catch (e: any) {
+            if (e.message === 'REQUEST_PENDING') {
+                setPaymentStep('pending_admin');
+                showToast('You already have a pending request.', 'info');
+            } else if (e.message === 'ALREADY_PRO') {
+                setPaymentItem(null);
+                showToast('You are already PRO!', 'success');
+            } else {
+                setPaymentStep('scan'); 
+                showToast('Submission failed. Try again.', 'error');
+            }
         }
     }
   };
@@ -128,7 +141,7 @@ const RewardsShop: React.FC<RewardsShopProps> = ({ coins, unlockedThemes, unlock
              const isUnlockedAvatar = item.type === 'avatar' && unlockedAvatars.includes(item.id);
              const isBoosterRunning = item.type === 'booster' && isBoosterActive;
              const isPremiumItem = item.type === 'premium';
-             const isOwned = isUnlockedTheme || isUnlockedAvatar || isBoosterRunning;
+             const isOwned = isUnlockedTheme || isUnlockedAvatar || isBoosterRunning || (isPremiumItem && isPro);
              const canAfford = isPremiumItem || coins >= item.cost;
              
              return (
@@ -173,54 +186,94 @@ const RewardsShop: React.FC<RewardsShopProps> = ({ coins, unlockedThemes, unlock
                 exit={{ opacity: 0, scale: 0.9 }}
                 className="absolute inset-0 flex items-center justify-center p-4 bg-slate-950/95 z-[60]"
             >
-                <div className="w-full max-w-sm bg-white rounded-3xl px-6 py-8 shadow-2xl relative flex flex-col items-center max-h-full overflow-y-auto">
-                    <button onClick={() => setPaymentItem(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-2"><X size={24} /></button>
+                <div className="w-full max-w-sm bg-slate-100 rounded-3xl overflow-hidden shadow-2xl relative flex flex-col items-center max-h-[90vh] overflow-y-auto">
+                    {/* Close Button on Header for visibility */}
+                    <button onClick={() => setPaymentItem(null)} className="absolute top-4 right-4 text-white/90 hover:text-white z-20 p-2 bg-black/10 rounded-full backdrop-blur-sm transition"><X size={20} /></button>
                     
                     {paymentStep === 'scan' && (
-                        <>
-                            <div className="text-center mb-4 w-full">
-                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Scan to Pay</p>
-                                <div className="text-2xl font-black text-slate-900">NPR 30.00</div>
-                            </div>
-                            
-                            <div className="bg-white p-2 rounded-xl mb-4 shadow-sm border border-slate-200">
-                                <img 
-                                    src="/payment-qr.png" 
-                                    alt="Payment QR" 
-                                    className="w-48 h-48 object-contain mx-auto"
-                                    onError={(e) => { e.currentTarget.src = "https://placehold.co/200x200/red/white?text=QR+Error"; }}
-                                />
+                        <div className="w-full flex flex-col items-center">
+                            {/* Fonepay-style Header */}
+                            <div className="w-full bg-[#c32128] pt-8 pb-16 px-6 relative flex flex-col items-center text-white">
+                                <div className="font-bold text-2xl tracking-tighter mb-1 lowercase">fonepay</div>
+                                <div className="text-xs opacity-90 font-medium">Scan and Pay</div>
                             </div>
 
-                            <div className="text-center space-y-1 mb-6 w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100">
-                                <h3 className="font-bold text-sm text-slate-900">Kanchan Prasant Store</h3>
-                                <p className="text-xs text-slate-600 font-mono">Terminal: 2222020015716497</p>
+                            {/* Floating Card */}
+                            <div className="w-[85%] -mt-10 bg-white rounded-xl shadow-xl border border-slate-200/50 p-4 flex flex-col items-center z-10">
+                                {/* QR Container */}
+                                <div className="border-2 border-dashed border-red-100 rounded-lg p-3 mb-4 bg-white relative">
+                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-5">
+                                        <SmartphoneNfc size={80} className="text-[#c32128]" />
+                                    </div>
+                                    <img 
+                                        src="/payment-qr.png" 
+                                        alt="Payment QR" 
+                                        className="w-48 h-48 object-contain relative z-10"
+                                        onError={(e) => { e.currentTarget.src = "https://placehold.co/200x200/D32F2F/FFFFFF?text=Fonepay+QR"; }}
+                                    />
+                                    <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-[#c32128] rounded-full flex items-center justify-center border-2 border-white">
+                                        <SmartphoneNfc size={14} className="text-white" />
+                                    </div>
+                                </div>
+                                
+                                <h3 className="font-bold text-lg text-slate-900 text-center leading-tight mb-1">Kanchan Prasant Store</h3>
+                                <p className="text-xs text-slate-500 font-medium mb-4 flex items-center gap-1">
+                                    PAN: <span className="font-mono">649712345</span>
+                                </p>
+
+                                <div className="w-full bg-red-50 rounded-lg py-3 px-4 flex justify-between items-center border border-red-100 mb-2">
+                                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Amount</span>
+                                    <span className="text-xl font-black text-[#c32128]">NPR 30.00</span>
+                                </div>
                             </div>
-                            
-                            <button 
-                                onClick={handlePaymentVerify}
-                                className="w-full py-3 bg-[#E31E24] text-white rounded-xl font-bold shadow-lg shadow-red-500/20 active:scale-95 transition"
-                            >
-                                Verify Payment
-                            </button>
-                        </>
+
+                            {/* Footer Area */}
+                            <div className="p-6 w-full bg-slate-100">
+                                <p className="text-[10px] text-center text-slate-400 mb-4 font-medium uppercase tracking-widest">
+                                    Accepted by Mobile Banking & Wallets
+                                </p>
+                                
+                                <button 
+                                    onClick={handlePaymentVerify}
+                                    className="w-full py-4 bg-[#c32128] text-white rounded-xl font-bold shadow-lg shadow-red-500/20 active:scale-95 transition flex items-center justify-center gap-2 hover:bg-[#a01a1f]"
+                                >
+                                    <Check size={20} strokeWidth={3} /> I Have Paid
+                                </button>
+                                
+                                <div className="flex justify-center gap-2 mt-4 opacity-40">
+                                   <div className="h-1 w-8 bg-slate-400 rounded-full"></div>
+                                   <div className="h-1 w-8 bg-slate-400 rounded-full"></div>
+                                   <div className="h-1 w-8 bg-slate-400 rounded-full"></div>
+                                </div>
+                            </div>
+                        </div>
                     )}
 
                     {paymentStep === 'verifying' && (
-                        <div className="py-12 text-center">
-                            <Loader className="animate-spin text-[#E31E24] mx-auto mb-4" size={40} />
-                            <h3 className="text-lg font-bold text-slate-900">Checking...</h3>
+                        <div className="py-16 text-center w-full px-6 bg-white flex-1 flex flex-col justify-center items-center">
+                            <div className="relative mb-6">
+                                <div className="absolute inset-0 bg-red-100 rounded-full animate-ping opacity-20"></div>
+                                <div className="bg-red-50 p-4 rounded-full">
+                                    <Loader className="animate-spin text-[#c32128]" size={40} />
+                                </div>
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-900 mb-2">Verifying Payment</h3>
+                            <p className="text-slate-500 text-sm">Please wait while we confirm your transaction...</p>
                         </div>
                     )}
 
                     {paymentStep === 'pending_admin' && (
-                        <div className="py-8 text-center">
-                            <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <Clock size={32} className="text-amber-500" />
+                        <div className="py-12 text-center w-full px-6 bg-white flex-1 flex flex-col justify-center items-center">
+                            <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-6 border-4 border-amber-100">
+                                <Clock size={40} className="text-amber-500" />
                             </div>
-                            <h3 className="text-xl font-bold text-slate-900 mb-2">Verification Sent</h3>
-                            <p className="text-slate-500 text-sm mb-6 px-4">Admin will approve your PRO status shortly.</p>
-                            <button onClick={() => setPaymentItem(null)} className="w-full py-3 bg-slate-800 text-white rounded-xl font-bold">Okay</button>
+                            <h3 className="text-2xl font-bold text-slate-900 mb-2">Request Sent</h3>
+                            <p className="text-slate-500 text-sm mb-8 px-4 leading-relaxed">
+                                Your payment screenshot/request has been sent to the admin. Your <strong>PRO</strong> status will be activated shortly after approval.
+                            </p>
+                            <button onClick={() => setPaymentItem(null)} className="w-full py-3.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition shadow-lg shadow-slate-900/10">
+                                Back to Shop
+                            </button>
                         </div>
                     )}
                 </div>

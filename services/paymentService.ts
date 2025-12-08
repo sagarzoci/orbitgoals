@@ -56,7 +56,14 @@ export const submitPaymentRequest = async (user: User) => {
     const snapshot = await getDocs(q);
     
     if (!snapshot.empty) {
-        return; // Already pending
+        throw new Error("REQUEST_PENDING");
+    }
+
+    // Double check if already PRO
+    const userConfigRef = doc(db, "user_configs", user.id);
+    const userConfigSnap = await getDoc(userConfigRef);
+    if (userConfigSnap.exists() && userConfigSnap.data().isPro) {
+        throw new Error("ALREADY_PRO");
     }
 
     await addDoc(collection(db, "payment_requests"), {
@@ -67,8 +74,11 @@ export const submitPaymentRequest = async (user: User) => {
         status: 'pending',
         date: serverTimestamp()
     });
-  } catch (error) {
+  } catch (error: any) {
     handleError(error, 'submitPaymentRequest');
+    if (error.message === 'REQUEST_PENDING' || error.message === 'ALREADY_PRO') {
+        throw error;
+    }
     if ((error as any).code === 'permission-denied' || !db) {
         throw new Error("Demo Mode: Backend unavailable.");
     }
