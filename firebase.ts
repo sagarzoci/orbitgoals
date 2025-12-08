@@ -28,7 +28,10 @@ try {
   googleProviderExport = new GoogleAuthProvider();
   dbExport = getFirestore(app, "default");
 } catch (error) {
-  console.warn("Firebase Initialization Failed. App running in offline/demo mode.", error);
+  console.warn(
+    "Firebase Initialization Failed. App running in offline/demo mode.",
+    error
+  );
 }
 
 // Export safe fallbacks if initialization failed to prevent import crashes
